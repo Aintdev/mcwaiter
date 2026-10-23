@@ -1,0 +1,34 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mcwaiter"
+version = "0.1.0-dev1"
+description = "Minecraft Server configurator and controller."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+authors = [
+    { name = "Aintdev" }
+]
+keywords = ["minecraft", "server", "configurator", "mcserver"]
+classifiers = [
+    "Development Status :: 1 - Planning",
+    "Environment :: Console",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Topic :: Utilities"
+]
+dependencies = []
+
+[project.scripts]
+mcwaiter = "mcwaiter.cli:main"
+
+[project.urls]
+Repository = "https://github.com/Aintdev/mcwaiter"
+Issues = "https://github.com/Aintdev/mcwaiter/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mcwaiter"]
