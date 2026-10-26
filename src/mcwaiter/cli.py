@@ -7,11 +7,16 @@ from mcwaiter.errors import UserCancelledError
 from mcwaiter.input import parse_arguments, ensure_data
 import mcwaiter.constants as C
 import logging as logging
+from shutil import rmtree
 
 def main():
-    log.setLevel(logging.DEBUG)
     ensure_config()
     args = parse_arguments()
+    log.setLevel(logging.DEBUG if C.DEBUG_ON else logging.INFO)
+    if C.DEBUG_ON:
+        debug_dir = C.CONFIG_DIR / ".debug"
+        if debug_dir.exists():
+            rmtree(debug_dir, ignore_errors=True)
 
     try:
         if args.command == 'create':

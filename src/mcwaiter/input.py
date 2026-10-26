@@ -28,11 +28,13 @@ def parse_arguments():
         "setup",
         help="Setup mcwaiter to be used.",
     )
+    add_global_arguments(setup)
 
     create = subparser.add_parser(
         "create", 
         help="Create a Minecraft Server.",
     )
+    add_global_arguments(create)
 
     create.add_argument("name", type=str, help="Name of the Minecraft Server.")
 
@@ -52,6 +54,7 @@ def parse_arguments():
         "delete",
         help="Deletes a Minecraft Server"
     )
+    add_global_arguments(delete)
 
     delete.add_argument(
         "name", 
@@ -68,6 +71,7 @@ def parse_arguments():
         "config", 
         help="Edit config file.",
     )
+    add_global_arguments(config)
 
     config.add_argument(
         "editor",
@@ -77,7 +81,17 @@ def parse_arguments():
     
     args = parser.parse_args()
 
+    if args.debug:
+        C.DEBUG_ON = True
+
     return args
+
+def add_global_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Enables debug-mode.",
+    )
 
 def ensure_data(args: argparse.Namespace, flags: int) -> argparse.Namespace:
     if flags:

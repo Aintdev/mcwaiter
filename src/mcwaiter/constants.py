@@ -17,6 +17,8 @@ def get_app_description() -> str | None:
     except PackageNotFoundError:
         return "No description found."
 
+DEBUG_ON = False
+
 API = "https://mcjars.app/api/"
 
 APP_VERSION: str = get_app_version()
