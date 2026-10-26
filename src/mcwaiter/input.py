@@ -34,18 +34,18 @@ def parse_arguments():
         help="Create a Minecraft Server.",
     )
 
-    create.add_argument('name', type=str, help="Name of the Minecraft Server.")
+    create.add_argument("name", type=str, help="Name of the Minecraft Server.")
 
     create.add_argument(
-        '--version', 
+        "--version", 
         type=str,
-        help="Minecraft version. (eg: 1.20.1)"
+        help="Minecraft version. (eg: 1.20.1)",
     )
 
     create.add_argument(
-        '--loader',
+        "--loader",
         type=str,
-        help="Loader in format 'loader@build'. (eg: fabric@0.20.1 or fabric@stable (gets latest stable version))"
+        help="Loader in format 'loader@build'. (eg: fabric@0.20.1 or fabric@stable (gets latest stable version))",
     )
 
     delete = subparser.add_parser(
@@ -54,12 +54,12 @@ def parse_arguments():
     )
 
     delete.add_argument(
-        'name', 
+        "name", 
         type=str
     )
 
     delete.add_argument(
-        '--confirm-override',
+        "--confirm-override",
         action="store_true",
         help="Overrides the question if you are sure you want to delete the server. Use at your own risk."
     )
@@ -70,8 +70,8 @@ def parse_arguments():
     )
 
     config.add_argument(
-        'editor',
-        nargs='?',
+        "editor",
+        nargs="?",
         type=str,
     )
     
