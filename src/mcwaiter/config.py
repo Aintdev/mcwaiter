@@ -1,5 +1,4 @@
 import mcwaiter.constants as C
-import subprocess
 from pathlib import Path
 
 DEFAULT_CONFIG = {
