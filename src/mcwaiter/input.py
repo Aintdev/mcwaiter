@@ -4,7 +4,7 @@ from mcwaiter.logger import logger as log
 import mcwaiter.constants as C
 from mcwaiter.errors import UserCancelledError
 from mcwaiter.requests import get_loaders
-from typing import Callable
+from typing import Any, Callable
 import questionary
 
 def parse_arguments():
@@ -93,6 +93,78 @@ def add_global_arguments(parser: argparse.ArgumentParser) -> None:
         help="Enables debug-mode.",
     )
 
+class Build:
+    def __init__(
+            self, 
+            id: int, 
+            name: str, 
+            versionId: str | None, 
+            projectVersionId: str | None, 
+            experimental: bool, 
+            installation: list[list[dict[str, str | int]]]
+        ):
+        self.id: int = id
+        self.name: str = name
+        self.versionId: str | None = versionId
+        self.projectVersionId: str | None = projectVersionId
+        self.experimental: bool = experimental
+        self.installation: list[
+            dict[str, str | int]
+        ] = Build.resolve_installation(installation)
+
+    @staticmethod
+    def resolve_installation(input: list[list[dict[str, str | int]]]):
+        installation = []
+
+        for pack in input:
+            installation += pack
+
+        return installation
+
+def select_build(builds_request: Any) -> Build:
+    if not builds_request.get("builds", []):
+        raise RuntimeError("Response contains no 'builds' list (single-build response?).")
+
+    first = True
+    stable = None
+
+    builds: list[Build] = []
+    for build in builds_request.get("builds"):
+        is_latest_stable = not stable and not build["experimental"]
+
+        suffix = (" (latest-stable)" if is_latest_stable else "") + (" (latest)" if first else "")
+
+        temp = Build(
+            id = build["id"],
+            name = 
+                build["name"] 
+                + suffix,
+            versionId = build["versionId"],
+            projectVersionId = build["projectVersionId"],
+            experimental = build["experimental"],
+            installation = build["installation"]
+        )
+        if is_latest_stable:
+            stable = temp
+        else:
+            builds.append(temp)
+        
+        first = False
+
+    builds = ([stable] if stable else []) + builds
+
+    return builds[ask_build(builds)]
+
+def ask_build(builds: list[Build]) -> int:
+    options = [
+        questionary.Choice(
+            title=("[STBL] " if not build.experimental else "[BETA] ") + build.name,
+            value=i,
+        )
+        for i, build in enumerate(builds)
+    ]
+    return ask(questionary.select, "Select loader version.", choices=options)
+
 def ensure_data(args: argparse.Namespace, flags: int) -> argparse.Namespace:
     if flags:
         if flags & C.NAME_F and not args.name:
@@ -125,14 +197,15 @@ def confirm_with_ctrl_message(message: str, ctrl: str, **kwargs) -> bool:
     if not sucess: log.error("Incorrect.")
     return sucess
 
-def ask(prompt_type: Callable, message: str, **kwargs) -> str:
+def ask(prompt_type: Callable, message: str, **kwargs) -> Any:
     while True:
         out = prompt_type(message, **kwargs).ask(kbi_msg="")
         if out is None:
             raise UserCancelledError("Interrupted in User Input.")
 
-        out: str
-        if out := out.strip():
-            return out.lower()
+        if isinstance(out, str):
+            if out := out.strip():
+                return out
+        else: return out
 
         log.warning("Invalid input, please try again or press CTRL-C to exit.")

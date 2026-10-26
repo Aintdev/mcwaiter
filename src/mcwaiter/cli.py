@@ -4,7 +4,8 @@ from mcwaiter.config import ensure_config, save_config
 from mcwaiter.helpers import parse_loader
 from mcwaiter.logger import logger as log
 from mcwaiter.errors import UserCancelledError
-from mcwaiter.input import parse_arguments, ensure_data
+from mcwaiter.input import parse_arguments, ensure_data, select_build
+from mcwaiter.requests import get_builds
 import mcwaiter.constants as C
 import logging as logging
 from shutil import rmtree
@@ -38,14 +39,19 @@ def config(args):
 def create(args):
     args = ensure_data(args, C.ALL_CREATE_F)
     log.info("Creating.")
-    get_build(args)
+    calculate_build(args)
 
     SERVER_PATH = Path(C.config.get("DEFAULTS", "serverpath")) / args.name
     SERVER_PATH.mkdir(parents=True, exist_ok=True)
 
-def get_build(args):
-    loader, version = parse_loader(args.loader)
-    # get version here
+def calculate_build(args):
+    loader, loader_version = parse_loader(args.loader)
+
+    result, multiple = get_builds(args.version, loader, loader_version)
+
+    if multiple:
+        build = select_build(result)
+        log.debug(build.__dict__)
     
 def delete(args):
     ensure_data(args, C.ALL_DELETE_F)
