@@ -23,7 +23,8 @@ classifiers = [
 ]
 dependencies = [
     "questionary",
-    "platformdirs"
+    "platformdirs",
+    "requests"
 ]
 
 [project.scripts]
