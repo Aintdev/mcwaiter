@@ -1,4 +1,6 @@
 
+import os
+from pathlib import Path
 import pwd
 import grp
 import re
@@ -21,6 +23,13 @@ def validate_username(username: str) -> bool:
         isinstance(username, str)
         and _USERNAME_PATTERN.fullmatch(username)
     )
+
+def user_own(user: UserInfo, path: Path) -> None:
+    for root, dirs, files in os.walk(path):
+        os.chown(root, user.uid, user.gid)
+
+        for name in dirs + files:
+            os.chown(os.path.join(root, name), user.uid, user.gid)
 
 def user_exists(username: str) -> bool:
     try:
