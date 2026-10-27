@@ -1,11 +1,14 @@
+import json
+import os
 from pathlib import Path
 import subprocess
 from mcwaiter.config import ensure_config, save_config
-from mcwaiter.helpers import parse_loader
+from mcwaiter.helpers import is_windows, parse_loader, require_root
 from mcwaiter.logger import logger as log
-from mcwaiter.errors import UserCancelledError
-from mcwaiter.input import parse_arguments, ensure_data, select_build
-from mcwaiter.requests import get_builds
+from mcwaiter.errors import UserCancelledError, DownloadError
+from mcwaiter.input import Build, parse_arguments, ensure_data, select_build
+from mcwaiter.requests import download, get_builds
+import mcwaiter.user as user
 import mcwaiter.constants as C
 import logging as logging
 from shutil import rmtree
@@ -35,27 +38,62 @@ def main():
     save_config()
     return 0
 
+# Command "config"
+
 def config(args):
     ensure_data(args, C.EDITOR_F)
     subprocess.run([args.editor, str(C.CONFIG_FILE)], check=True, shell=False)
 
+# Command "create"
+
 def create(args):
+    require_root()
+
     args = ensure_data(args, C.ALL_CREATE_F)
     log.info("Creating.")
-    calculate_build(args)
 
-    SERVER_PATH = Path(C.config.get("DEFAULTS", "serverpath")) / args.name
-    SERVER_PATH.mkdir(parents=True, exist_ok=True)
+    if not user.get_user(args.name):
+        user.create_user(args.name)
+    else:
+        log.error("Server with that name already exists.")
 
-def calculate_build(args):
+    cur_user = user.get_user(args.name)
+
+    build = _calculate_build(args)
+
+    server_dir = Path(C.config.get("DEFAULTS", "serverpath")) / args.name
+    server_dir.mkdir(parents=True, exist_ok=True)
+
+    _install(build, server_dir, cur_user)
+
+    user.user_own(cur_user, server_dir)
+
+def _install(build: Build, directory: Path, user: user.UserInfo) -> None:
+    for instruction in build.installation:
+        log.debug(json.dumps(instruction, indent=4))
+
+        if instruction["type"] == "download":
+            download(
+                instruction["url"], 
+                (Path(directory) / instruction["file"]).resolve(),
+                instruction["size"]
+            )
+
+def _calculate_build(args):
     loader, loader_version = parse_loader(args.loader)
 
     result, multiple = get_builds(args.version, loader, loader_version)
 
     if multiple:
         build = select_build(result)
-        log.debug(build.__dict__)
-    
+    else:
+        build = result
+    log.debug(build.__dict__)
+
+    return build
+
+# Command "delete"
+
 def delete(args):
     ensure_data(args, C.ALL_DELETE_F)
     if not args.confirm_override: 
