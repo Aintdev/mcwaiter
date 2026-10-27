@@ -34,7 +34,7 @@ def main():
 
 def config(args):
     ensure_data(args, C.EDITOR_F)
-    subprocess.run([args.editor, str(C.CONFIG_FILE)], check=True, shell=True)
+    subprocess.run([args.editor, str(C.CONFIG_FILE)], check=True, shell=False)
 
 def create(args):
     args = ensure_data(args, C.ALL_CREATE_F)
