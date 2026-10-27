@@ -1,6 +1,10 @@
 import os
+from pathlib import Path
 import random
 import string
+import subprocess
+import sys
+from mcwaiter.logger import logger as log
 
 def random_str(N: int) -> str:
     # Source - https://stackoverflow.com/a/2257449
@@ -18,3 +22,17 @@ def parse_loader(arg: str) -> tuple[str, str | None]:
 
 def is_windows():
     return os.name == 'nt'
+
+def require_root():
+    if os.geteuid() == 0:
+        return
+
+    log.debug("Raised privileges.")
+
+    script = Path(sys.argv[0]).resolve()
+
+    subprocess.run(
+        ["sudo", sys.executable, str(script), *sys.argv[1:]],
+        check=True,
+    )
+    sys.exit(0)
