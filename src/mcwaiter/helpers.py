@@ -1,3 +1,4 @@
+import os
 import random
 import string
 
@@ -14,3 +15,6 @@ def parse_loader(arg: str) -> tuple[str, str | None]:
         return (name, ver)
 
     return (arg, None)
+
+def is_windows():
+    return os.name == 'nt'

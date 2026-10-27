@@ -11,6 +11,9 @@ import logging as logging
 from shutil import rmtree
 
 def main():
+    if is_windows():
+        log.critical("Tool is not windows compatible - please run in unix-like.")
+        return 1
     ensure_config()
     args = parse_arguments()
     log.setLevel(logging.DEBUG if C.DEBUG_ON else logging.INFO)
