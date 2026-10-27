@@ -66,3 +66,6 @@ def get_builds(mcversion: str, loader: str, version: str | None = None) -> tuple
     
     result: dict
     return result, bool(result.get("builds"))
+
+def download(url: str, filepath: str, size: int):
+    pass # wip
