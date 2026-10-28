@@ -52,7 +52,7 @@ def create(args):
     args = ensure_data(args, C.ALL_CREATE_F)
     log.info("Creating.")
 
-    if not user.get_user(args.name):
+    if not user.user_exists(args.name):
         user.create_user(args.name)
     else:
         log.error("Server with that name already exists.")
