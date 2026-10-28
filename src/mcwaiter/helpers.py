@@ -4,6 +4,7 @@ import random
 import string
 import subprocess
 import sys
+from mcwaiter.errors import ServerStateError
 from mcwaiter.logger import logger as log
 
 def random_str(N: int) -> str:
@@ -36,3 +37,10 @@ def require_root():
         check=True,
     )
     sys.exit(0)
+
+def safe_path(base: Path, relative: str) -> Path:
+    base = base.resolve()
+    target = (base / relative).resolve()
+    if target == base or not target.is_relative_to(base):
+        raise ServerStateError(f"Path {relative!r} points outside the server directory.")
+    return target

@@ -24,6 +24,22 @@ def parse_arguments():
         required=True,
     )
 
+    shell = subparser.add_parser(
+        "shell",
+        help="Opens shell as that servers user."
+    )
+
+    shell.add_argument("name", type=str, help="Name of the Minecraft Server.")
+    add_global_arguments(shell)
+
+    chown = subparser.add_parser(
+        "chown",
+        help="Fixes ownership of all Minecraft server files.",
+    )
+    
+    chown.add_argument("name", type=str, help="Name of the Minecraft Server.")
+    add_global_arguments(chown)
+
     setup = subparser.add_parser(
         "setup",
         help="Setup mcwaiter to be used.",

@@ -25,11 +25,14 @@ def validate_username(username: str) -> bool:
     )
 
 def user_own(user: UserInfo, path: Path) -> None:
+    os.chown(path, user.uid, user.gid, follow_symlinks=False)
     for root, dirs, files in os.walk(path):
-        os.chown(root, user.uid, user.gid)
-
         for name in dirs + files:
-            os.chown(os.path.join(root, name), user.uid, user.gid)
+            os.chown(os.path.join(root, name), user.uid, user.gid, follow_symlinks=False)
+
+def sudo_permissions_fix(path: Path) -> None:
+    if (sudo_user := os.environ.get("SUDO_USER")) and os.geteuid() == 0:
+        user_own(get_user(sudo_user), path)
 
 def user_exists(username: str) -> bool:
     try:
@@ -69,7 +72,7 @@ def create_user(username: str, homedir: Path) -> None:
     "useradd",
     "--system",
     "--user-group",
-]
+    ]
 
     if homedir:
         command.extend(["--create-home", "--home-dir", str(homedir)])

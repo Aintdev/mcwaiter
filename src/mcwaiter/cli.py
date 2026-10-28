@@ -1,11 +1,13 @@
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
+import zipfile
 from mcwaiter.config import ensure_config, save_config
-from mcwaiter.helpers import is_windows, parse_loader, require_root
+from mcwaiter.helpers import is_windows, parse_loader, require_root, safe_path
 from mcwaiter.logger import logger as log
-from mcwaiter.errors import UserCancelledError, DownloadError
+from mcwaiter.errors import NoVersionFoundError, ServerStateError, UserCancelledError
 from mcwaiter.input import Build, parse_arguments, ensure_data, select_build
 from mcwaiter.requests import download, get_builds
 import mcwaiter.user as user
@@ -26,17 +28,48 @@ def main():
             rmtree(debug_dir, ignore_errors=True)
 
     try:
-        if args.command == 'create':
+        if args.command == 'shell':
+            shell(args)
+        elif args.command == 'chown':
+            chown(args)
+        elif args.command == 'create':
             create(args)
         elif args.command == 'delete':
             delete(args)
         elif args.command == 'config':
             config(args)
     except (KeyboardInterrupt, UserCancelledError):
-        pass
-    log.info("Exiting.")
+        log.info("Cancelled.")
+    except ServerStateError as e:
+        log.critical("ServerStateError: " + str(e))
+    except NoVersionFoundError:
+        log.error("No version for given parameters found.")
     save_config()
     return 0
+
+def server_exists(name: str):
+    return user.user_exists(C.USER_PREFIX + name) and (Path(C.config.get("DEFAULTS", "serverpath")) / name).exists()
+
+def ensure_server(name: str):
+    if not server_exists(name):
+        raise ServerStateError(f"User or folder with name {name} not found.")
+
+def ensure_server_creatable(name: str):
+    if user.user_exists(C.USER_PREFIX + name) or (Path(C.config.get("DEFAULTS", "serverpath")) / name).exists():
+        raise ServerStateError(f"User or folder at {C.config.get("DEFAULTS", "serverpath")} with name {name} already exists.")
+
+# Command "shell"
+
+def shell(args):
+    username = C.USER_PREFIX + args.name
+
+    os.execvp("sudo", [
+        "sudo",
+        "-u", username,
+        "-H",
+        "sh", "-c", 'cd "$HOME" && exec "$0"',
+        C.config.get("DEFAULTS", "shell"),
+    ])
 
 # Command "config"
 
@@ -44,66 +77,106 @@ def config(args):
     ensure_data(args, C.EDITOR_F)
     subprocess.run([args.editor, str(C.CONFIG_FILE)], check=True, shell=False)
 
+# Command "chown"
+
+def chown(args): 
+    ensure_server(args.name)
+    user.user_own(user.get_user(args.name), Path(C.config.get("DEFAULTS", "serverpath")) / args.name)
+
 # Command "create"
 
 def create(args):
+    ensure_server_creatable(args.name)
     require_root()
 
     args = ensure_data(args, C.ALL_CREATE_F)
     log.info("Creating.")
 
-    this_user = C.USER_PREFIX + str(args.name).lower()
+    this_user_str = C.USER_PREFIX + str(args.name).lower()
     server_dir = Path(C.config.get("DEFAULTS", "serverpath")) / args.name
-
-    if not user.user_exists(this_user):
-        user.create_user(this_user, server_dir)
-    else:
-        log.error("Server with that name already exists.")
-        return
-
-    cur_user = user.get_user(this_user)
-
-    #server_dir.mkdir(parents=True, exist_ok=True)
 
     build = _calculate_build(args)
 
-    _install(build, server_dir, cur_user)
+    try:
+        if not user.user_exists(this_user_str):
+            user.create_user(this_user_str, server_dir)
+        else:
+            log.error("Server with that name already exists.")
+            return
 
-    user.user_own(cur_user, server_dir)
+        cur_user = user.get_user(this_user_str)
 
-def _install(build: Build, directory: Path, user: user.UserInfo) -> None:
+        _install(build, server_dir, cur_user)
+
+        log.info("Finished successfully.")
+    except:
+        delete(args, _force=True)
+        raise
+
+
+def _install(build: Build, directory: Path, user_info: user.UserInfo) -> None:
     for instruction in build.installation:
         log.debug(json.dumps(instruction, indent=4))
 
         if instruction["type"] == "download":
            download(
                url = instruction["url"], 
-               filepath = (Path(directory) / instruction["file"]).resolve(),
+               filepath = safe_path(directory, instruction["file"]),
                show_progressbar = True,
                expected_filesize = instruction.get("size", 0)                
            )
+        elif instruction["type"] == "unzip":
+            zip_file = safe_path(directory, str(Path(instruction["location"]) / instruction["file"]))
+            log.info(f"Unzipping {zip_file}...")
+
+            with zipfile.ZipFile(zip_file, 'r') as zip_ref:
+                zip_ref.extractall(directory)
+        elif instruction["type"] == "remove":
+            file = safe_path(directory, instruction["location"])
+            log.info(f"Deleting {file.name}...")
+
+            if file.is_dir(): 
+                shutil.rmtree(file, True)
+            elif file.exists():
+                file.unlink()
+
+    user.user_own(user_info, directory)
 
 def _calculate_build(args):
     loader, loader_version = parse_loader(args.loader)
 
     result, multiple = get_builds(args.version, loader, loader_version)
 
+    if not result["builds"]:
+        raise NoVersionFoundError("No version found.")
+
     if multiple:
         build = select_build(result)
     else:
-        build = result
+        build = Build(
+            id = result["id"],
+            name = result["name"] ,
+            versionId = result["versionId"],
+            projectVersionId = result["projectVersionId"],
+            experimental = result["experimental"],
+            installation = result["installation"]
+        )
     log.debug(build.__dict__)
 
     return build
 
 # Command "delete"
 
-def delete(args):
-    ensure_data(args, C.ALL_DELETE_F)
-    if not args.confirm_override: 
-        return
-    log.info("Deleting.")
+def delete(args, /, _force = False):
+    ensure_server(args.name)
+    require_root()
 
-    user.delete_user(C.USER_PREFIX + args.name, True)
+    if not _force: 
+        ensure_data(args, C.ALL_DELETE_F)
+        if not args.confirm_override: 
+            return
+    log.info("Deleting." if not _force else "Reverting.")
+
+    user.delete_user(C.USER_PREFIX + args.name, remove_home=True)
 
 # Command "setup"

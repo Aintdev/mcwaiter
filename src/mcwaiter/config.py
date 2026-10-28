@@ -1,13 +1,15 @@
 import mcwaiter.constants as C
-from pathlib import Path
+from mcwaiter.user import sudo_permissions_fix
+import shutil
 
 DEFAULT_CONFIG = {
     "DEFAULTS": {
         "serverpath": "/opt/mcservers/",
         "editor": "",
+        "shell": f"{shutil.which("bash")}"
     },
     "JAVA": {
-        "auto": "java"
+        "auto": f"{shutil.which("java")}"
     },
 }
 
@@ -31,3 +33,4 @@ def ensure_config() -> None:
 def save_config() -> None:
     with C.CONFIG_FILE.open("w") as f:
         C.config.write(f)
+    sudo_permissions_fix(C.CONFIG_DIR)

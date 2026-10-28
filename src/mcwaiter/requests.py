@@ -5,6 +5,7 @@ from tqdm import tqdm
 import mcwaiter.constants as C
 from mcwaiter.logger import logger as log
 from mcwaiter.errors import DownloadError
+from mcwaiter.user import sudo_permissions_fix
 from time import sleep
 import json
 from datetime import datetime
@@ -43,6 +44,8 @@ def _req_get(*args, **kwargs) -> requests.Response:
             }
 
             json.dump(data, f, indent=4)
+        sudo_permissions_fix(apilogs_dir)
+
     return response
 
 def get_loaders() -> dict:
@@ -76,7 +79,7 @@ def get_builds(mcversion: str, loader: str, version: str | None = None) -> tuple
         raise RuntimeError("Failed to fetch builds.")
     
     result: dict
-    return result, bool(result.get("builds"))
+    return result, not bool(result.get("build")) 
 
 def download(
         url: str, 
