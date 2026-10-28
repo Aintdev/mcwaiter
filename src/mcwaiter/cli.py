@@ -183,12 +183,14 @@ def _calculate_build(args):
 
     result, multiple = get_builds(args.version, loader, loader_version)
 
-    if not result["builds"]:
+    if not result.get("builds") and not result.get("build"):
+        log.debug(json.dumps(result, indent=4))
         raise NoVersionFoundError("No version found.")
 
     if multiple:
         build = select_build(result)
     else:
+        result = result["build"]
         build = Build(
             id = result["id"],
             name = result["name"] ,

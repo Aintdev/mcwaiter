@@ -17,8 +17,8 @@ _session.headers.update({
 
 _TRY_AGAIN_SECONDS = 3
 
-def _req_get(*args, **kwargs) -> requests.Response:
-    response = _session.get(*args, **kwargs)
+def _req(method: str, *args, **kwargs) -> requests.Response:
+    response = _session.request(method, *args, **kwargs)
 
     response.raise_for_status()
 
@@ -48,6 +48,12 @@ def _req_get(*args, **kwargs) -> requests.Response:
 
     return response
 
+def _req_get(*args, **kwargs) -> requests.Response:
+    return _req("GET", *args, **kwargs)
+
+def _req_post(*args, **kwargs) -> requests.Response:
+    return _req("POST", *args, **kwargs)
+
 def get_loaders() -> dict:
     response = _req_get(C.API + "v2/types", timeout=10)
     data = response.json()
@@ -64,12 +70,12 @@ def get_builds(mcversion: str, loader: str, version: str | None = None) -> tuple
     """Returns build[s] and a bool whether or not it has multiple builds."""
     if version:
         params = {
-            "versionId": str(mcversion),
             "type": str(loader),
-            "projectVersionId": str(version),
+            "versionId": str(mcversion),
+            "projectVersionId": str(version)
         }
     
-        response = _req_get(C.API + "v2/build", timeout=10, params=params)
+        response = _req_post(C.API + "v2/build", timeout=10, json=params)
     else:
         response = _req_get(C.API + f"v2/builds/{str(loader).upper()}/{str(mcversion)}", timeout=10)
 
