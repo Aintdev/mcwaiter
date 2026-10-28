@@ -104,6 +104,6 @@ def delete(args):
         return
     log.info("Deleting.")
 
-    user.delete_user(C.USER_PREFIX + args.name)
+    user.delete_user(C.USER_PREFIX + args.name, True)
 
 # Command "setup"
