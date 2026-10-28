@@ -24,6 +24,8 @@ API = "https://mcjars.app/api/"
 APP_VERSION: str = get_app_version()
 APP_DESCRIPTION: str = get_app_description()
 
+USER_PREFIX = "mcwaiter-"
+
 # Config stuff
 CONFIG_DIR: Path = user_config_path("mcwaiter", appauthor=False)
 CONFIG_DIR.mkdir(parents=True, exist_ok=True)

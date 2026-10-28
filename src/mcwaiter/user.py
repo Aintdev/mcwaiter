@@ -38,13 +38,6 @@ def user_exists(username: str) -> bool:
     except KeyError:
         return False
 
-def group_exists(groupname: str) -> bool:
-    try:
-        grp.getgrnam(groupname)
-        return True
-    except KeyError:
-        return False
-
 def get_user(username: str) -> UserInfo:
     try:
         entry = pwd.getpwnam(username)
@@ -65,37 +58,48 @@ def get_user(username: str) -> UserInfo:
         primary_group=primary_group,
     )
 
-def create_group(groupname: str) -> None:
-    if not validate_username(groupname):
-        raise ValueError(f"Invalid group name: {groupname}")
-
-    if group_exists(groupname):
-        raise FileExistsError(f"Group already exists: {groupname}")
-
-    subprocess.run(
-        ["groupadd", "--system", groupname],
-        check=True,
-    )
-
-def create_user(username: str) -> None:
+def create_user(username: str, homedir: Path) -> None:
     if not validate_username(username):
         raise ValueError(f"Invalid username: {username}")
 
     if user_exists(username):
         raise FileExistsError(f"User already exists: {username}")
 
-    subprocess.run(
-        [
-            "useradd",
-            "--system",
-            "--user-group",
-            "--no-create-home",
-            "--home-dir", "/nonexistent",
-            "--shell", "/usr/sbin/nologin",
-            username,
-        ],
-        check=True,
-    )
+    command = [
+    "useradd",
+    "--system",
+    "--user-group",
+]
+
+    if homedir:
+        command.extend(["--create-home", "--home-dir", str(homedir)])
+    else:
+        command.extend(["--no-create-home", "--home-dir", "/nonexistent"])
+
+    command.extend([
+        "--shell", "/usr/sbin/nologin",
+        username,
+    ])
+
+    subprocess.run(command, check=True)
+
+def delete_user(username: str, *, remove_home: bool = False) -> None:
+    if not validate_username(username):
+        raise ValueError(f"Invalid username: {username}")
+
+    try:
+        entry = pwd.getpwnam(username)
+    except KeyError:
+        raise LookupError(f"User does not exist: {username}") from None
+
+    command = ["userdel"]
+
+    if remove_home:
+        command.append("--remove")
+
+    command.append(entry.pw_name)
+
+    subprocess.run(command, check=True)
 
 def ensure_user(username: str) -> UserInfo:
     if not validate_username(username):

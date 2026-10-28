@@ -24,7 +24,8 @@ classifiers = [
 dependencies = [
     "questionary",
     "platformdirs",
-    "requests"
+    "requests",
+    "tqdm"
 ]
 
 [project.scripts]

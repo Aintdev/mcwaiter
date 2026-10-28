@@ -1,12 +1,23 @@
+from pathlib import Path
 from typing import Any
 import requests
+from tqdm import tqdm
 import mcwaiter.constants as C
 from mcwaiter.logger import logger as log
+from mcwaiter.errors import DownloadError
+from time import sleep
 import json
 from datetime import datetime
 
+_session = requests.Session()
+_session.headers.update({
+    "User-Agent": f"Aintdev/mcwaiter/{C.APP_VERSION}"
+})
+
+_TRY_AGAIN_SECONDS = 3
+
 def _req_get(*args, **kwargs) -> requests.Response:
-    response = requests.get(*args, **kwargs)
+    response = _session.get(*args, **kwargs)
 
     response.raise_for_status()
 
@@ -67,5 +78,84 @@ def get_builds(mcversion: str, loader: str, version: str | None = None) -> tuple
     result: dict
     return result, bool(result.get("builds"))
 
-def download(url: str, filepath: str, size: int):
-    pass # wip
+def download(
+        url: str, 
+        filepath: Path, 
+        show_progressbar: bool = True,
+        expected_filesize: int = None,
+        _attempt: int = 0
+    ):
+    try:
+        directory = filepath.parent
+        final_filename = filepath.name
+        temp_filename = final_filename + ".part"
+        temp_file = directory / temp_filename
+
+        try:
+            with _session.get(
+                url, stream=True, timeout=(10, 10)
+            ) as response:
+                response.raise_for_status()
+
+                total_size = int(
+                    response.headers.get("content-length", 0)
+                )
+
+                if total_size != expected_filesize:
+                    log.debug("Header filesize is not the same as the api given filesize. Continuing anyway.")
+
+                log.info(f"Starting download of {final_filename}.")
+
+                with tqdm(
+                    total=total_size,
+                    unit="B",
+                    unit_scale=True,
+                    disable=not show_progressbar,
+                ) as progress_bar:
+                    with temp_file.open("wb") as file:
+                        for data in response.iter_content(64 * 1024):
+
+                            if not data:
+                                continue
+
+                            file.write(data)
+                            progress_bar.update(len(data))
+
+            downloaded_size = temp_file.stat().st_size
+            if total_size and downloaded_size != total_size:
+                raise RuntimeError(
+                    f"Incomplete download: expected {total_size} bytes, "
+                    f"got {downloaded_size}"
+                )
+
+            temp_file.rename(filepath)
+            return True
+        
+        finally:
+            try:
+                temp_file.unlink(missing_ok=True)
+            except OSError as error:
+                log.warning(
+                    f"Could not remove temporary file {temp_filename}: {error}"
+                )
+    except KeyboardInterrupt:
+        log.info("Download cancelled by user.")
+        raise
+    except Exception as error:
+        log.error(
+            f"Download failed for {filepath.name}: {error}"
+        )
+
+        if _attempt >= 2:
+            raise DownloadError("Something went wrong during the download (3 tries).")
+
+        log.info(f"Trying again in {_TRY_AGAIN_SECONDS} seconds.")
+        sleep(_TRY_AGAIN_SECONDS)
+
+        return download(
+            url = url,
+            filepath = filepath,
+            show_progressbar = show_progressbar,
+            expected_filesize = expected_filesize,
+            _attempt=_attempt + 1,
+        )

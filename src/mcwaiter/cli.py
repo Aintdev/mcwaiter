@@ -52,17 +52,20 @@ def create(args):
     args = ensure_data(args, C.ALL_CREATE_F)
     log.info("Creating.")
 
-    if not user.user_exists(args.name):
-        user.create_user(args.name)
+    this_user = C.USER_PREFIX + str(args.name).lower()
+    server_dir = Path(C.config.get("DEFAULTS", "serverpath")) / args.name
+
+    if not user.user_exists(this_user):
+        user.create_user(this_user, server_dir)
     else:
         log.error("Server with that name already exists.")
+        return
 
-    cur_user = user.get_user(args.name)
+    cur_user = user.get_user(this_user)
+
+    #server_dir.mkdir(parents=True, exist_ok=True)
 
     build = _calculate_build(args)
-
-    server_dir = Path(C.config.get("DEFAULTS", "serverpath")) / args.name
-    server_dir.mkdir(parents=True, exist_ok=True)
 
     _install(build, server_dir, cur_user)
 
@@ -73,11 +76,12 @@ def _install(build: Build, directory: Path, user: user.UserInfo) -> None:
         log.debug(json.dumps(instruction, indent=4))
 
         if instruction["type"] == "download":
-            download(
-                instruction["url"], 
-                (Path(directory) / instruction["file"]).resolve(),
-                instruction["size"]
-            )
+           download(
+               url = instruction["url"], 
+               filepath = (Path(directory) / instruction["file"]).resolve(),
+               show_progressbar = True,
+               expected_filesize = instruction.get("size", 0)                
+           )
 
 def _calculate_build(args):
     loader, loader_version = parse_loader(args.loader)
@@ -99,3 +103,7 @@ def delete(args):
     if not args.confirm_override: 
         return
     log.info("Deleting.")
+
+    user.delete_user(C.USER_PREFIX + args.name)
+
+# Command "setup"
