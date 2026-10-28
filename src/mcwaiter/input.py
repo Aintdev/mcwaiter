@@ -1,5 +1,6 @@
 import argparse
-from mcwaiter.helpers import random_str
+from pathlib import Path
+import mcwaiter.helpers as h
 from mcwaiter.logger import logger as log
 import mcwaiter.constants as C
 from mcwaiter.errors import UserCancelledError
@@ -31,6 +32,15 @@ def parse_arguments():
 
     shell.add_argument("name", type=str, help="Name of the Minecraft Server.")
     add_global_arguments(shell)
+
+    edit = subparser.add_parser(
+        "edit",
+        help="Edit a file in a server."
+    )
+
+    edit.add_argument("name", type=str, help="Name of the Minecraft Server.")
+    edit.add_argument("relpath", type=str, help="Path to file relative to server root.")
+    add_global_arguments(edit)
 
     chown = subparser.add_parser(
         "chown",
@@ -181,6 +191,65 @@ def ask_build(builds: list[Build]) -> int:
     ]
     return ask(questionary.select, "Select loader version.", choices=options)
 
+def make_jvm_args(args, directory: Path) -> None:
+    with open(directory / "user_jvm_args.txt", "w", encoding="utf-8") as f:
+        f.write(
+"""# ============================================================
+#  user_jvm_args.txt - JVM arguments for the Minecraft server
+# ============================================================
+#  Loaded by the start script via `java @user_jvm_args.txt ...`
+#  Lines starting with # are comments. One argument per line.
+#  Best to put comments on their own lines, not after an argument.
+# ============================================================
+
+# --- RAM -----------------------------------------------------
+# -Xms = initial heap, -Xmx = maximum heap.
+# For servers, set both to the same value so the JVM doesn't have
+# to resize the heap at runtime (fewer stutters).
+# Don't allocate all of the system RAM: leave about 2 GB for the
+# operating system and off-heap memory.
+-Xms6G
+-Xmx6G
+
+# --- Garbage collector (Aikar flags, for heaps up to ~12 GB) -
+# G1 is the default GC and works well for Minecraft.
+-XX:+UseG1GC
+-XX:+ParallelRefProcEnabled
+-XX:MaxGCPauseMillis=200
+-XX:+UnlockExperimentalVMOptions
+-XX:+DisableExplicitGC
+-XX:+AlwaysPreTouch
+-XX:G1NewSizePercent=30
+-XX:G1MaxNewSizePercent=40
+-XX:G1HeapRegionSize=8M
+-XX:G1ReservePercent=20
+-XX:G1HeapWastePercent=5
+-XX:G1MixedGCCountTarget=4
+-XX:InitiatingHeapOccupancyPercent=15
+-XX:G1MixedGCLiveThresholdPercent=90
+-XX:G1RSetUpdatingPauseTimePercent=5
+-XX:SurvivorRatio=32
+-XX:+PerfDisableSharedMem
+-XX:MaxTenuringThreshold=1
+
+# --- Misc ----------------------------------------------------
+# Consistent character encoding, avoids problems with special
+# characters.
+-Dfile.encoding=UTF-8
+
+# Write a heap dump on OutOfMemoryError (useful for debugging).
+# Comment these out if the files get too big.
+-XX:+HeapDumpOnOutOfMemoryError
+-XX:HeapDumpPath=./crash-reports
+
+# --- Optional: GC log ----------------------------------------
+# Only enable this if you want to analyze lag spikes.
+# -Xlog:gc*:file=logs/gc.log:time,uptime:filecount=5,filesize=10M
+""")
+    confirm = ask(questionary.confirm, "Do you want to edit the jvm args?")
+    if confirm:
+        h.edit_file(directory / "user_jvm_args.txt")
+
 def ensure_data(args: argparse.Namespace, flags: int) -> argparse.Namespace:
     if flags:
         if flags & C.NAME_F and not args.name:
@@ -200,7 +269,7 @@ def ensure_data(args: argparse.Namespace, flags: int) -> argparse.Namespace:
                 C.config.set("DEFAULTS", "Editor", args.editor)
 
         if flags & C.CONFIRM_DELETION_F and not args.confirm_override:
-            args.confirm_override = confirm_with_ctrl_message("Are you sure you want to DELETE. This action is not reversable.", random_str(6))
+            args.confirm_override = confirm_with_ctrl_message("Are you sure you want to DELETE. This action is not reversable.", h.random_str(6))
     
     return args
 

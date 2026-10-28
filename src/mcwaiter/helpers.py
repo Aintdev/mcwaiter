@@ -1,11 +1,16 @@
 import os
 from pathlib import Path
 import random
+import shutil
 import string
 import subprocess
 import sys
+import questionary
+from mcwaiter.config import save_config
 from mcwaiter.errors import ServerStateError
+import mcwaiter.input as i
 from mcwaiter.logger import logger as log
+import mcwaiter.constants as C
 
 def random_str(N: int) -> str:
     # Source - https://stackoverflow.com/a/2257449
@@ -44,3 +49,18 @@ def safe_path(base: Path, relative: str) -> Path:
     if target == base or not target.is_relative_to(base):
         raise ServerStateError(f"Path {relative!r} points outside the server directory.")
     return target
+
+def edit_file(path: Path, param = None):
+    if param:
+        C.config.set("DEFAULTS", "editor", param)
+    if not C.config.get("DEFAULTS", "editor"):
+        C.config.set("DEFAULTS", "editor", i.ask(questionary.text, "Editor:"))
+    save_config()
+
+    editor = C.config.get("DEFAULTS", "editor")
+    if shutil.which(editor):
+        subprocess.run([editor, str(path)])
+        return
+    else:
+        log.error("Invalid editor. Set editor in config by executing: 'mcwaiter config YOUR_EDITOR_HERE' and set it manually.")
+    

@@ -4,11 +4,12 @@ from pathlib import Path
 import shutil
 import subprocess
 import zipfile
+import questionary
 from mcwaiter.config import ensure_config, save_config
-from mcwaiter.helpers import is_windows, parse_loader, require_root, safe_path
+from mcwaiter.helpers import edit_file, is_windows, parse_loader, require_root, safe_path
 from mcwaiter.logger import logger as log
 from mcwaiter.errors import NoVersionFoundError, ServerStateError, UserCancelledError
-from mcwaiter.input import Build, parse_arguments, ensure_data, select_build
+from mcwaiter.input import Build, parse_arguments, ensure_data, select_build, ask, make_jvm_args
 from mcwaiter.requests import download, get_builds
 import mcwaiter.user as user
 import mcwaiter.constants as C
@@ -38,13 +39,14 @@ def main():
             delete(args)
         elif args.command == 'config':
             config(args)
+        elif args.command == 'edit':
+            edit(args)
     except (KeyboardInterrupt, UserCancelledError):
         log.info("Cancelled.")
     except ServerStateError as e:
         log.critical("ServerStateError: " + str(e))
     except NoVersionFoundError:
         log.error("No version for given parameters found.")
-    save_config()
     return 0
 
 def server_exists(name: str):
@@ -57,6 +59,19 @@ def ensure_server(name: str):
 def ensure_server_creatable(name: str):
     if user.user_exists(C.USER_PREFIX + name) or (Path(C.config.get("DEFAULTS", "serverpath")) / name).exists():
         raise ServerStateError(f"User or folder at {C.config.get("DEFAULTS", "serverpath")} with name {name} already exists.")
+
+# Command "edit"
+def edit(args):
+    ensure_server(args.name)
+    require_root()
+    username = C.USER_PREFIX + args.name
+
+    server_dir = safe_path(Path(C.config.get("DEFAULTS", "serverpath")), str(Path(args.name)))
+
+    real_path = safe_path(Path(C.config.get("DEFAULTS", "serverpath")), str(Path(args.name) / args.relpath))
+
+    edit_file(real_path)
+    user.user_own(user.get_user(C.USER_PREFIX + args.name), server_dir)
 
 # Command "shell"
 
@@ -75,7 +90,7 @@ def shell(args):
 
 def config(args):
     ensure_data(args, C.EDITOR_F)
-    subprocess.run([args.editor, str(C.CONFIG_FILE)], check=True, shell=False)
+    edit_file(C.CONFIG_FILE, args.editor)
 
 # Command "chown"
 
@@ -106,7 +121,7 @@ def create(args):
 
         cur_user = user.get_user(this_user_str)
 
-        _install(build, server_dir, cur_user)
+        _install(args, build, server_dir, cur_user)
 
         log.info("Finished successfully.")
     except:
@@ -114,7 +129,7 @@ def create(args):
         raise
 
 
-def _install(build: Build, directory: Path, user_info: user.UserInfo) -> None:
+def _install(args, build: Build, directory: Path, user_info: user.UserInfo) -> None:
     for instruction in build.installation:
         log.debug(json.dumps(instruction, indent=4))
 
@@ -140,6 +155,27 @@ def _install(build: Build, directory: Path, user_info: user.UserInfo) -> None:
             elif file.exists():
                 file.unlink()
 
+    eula_ask = ask(questionary.confirm, "Do you agree to the Minecraft EULA (https://aka.ms/MinecraftEULA)?", default=False)
+    eula_accept = "true" if eula_ask else "false"
+    with open(directory / "eula.txt", "w") as f:
+        f.write(
+f"""#By changing the setting below to TRUE you are indicating your agreement to our EULA (https://account.mojang.com/documents/minecraft_eula).
+eula={eula_accept}"""
+        )
+
+    run_file = directory / "run.sh"
+    with open(run_file, "w") as f:
+        f.write(
+f"""#!{C.config.get("DEFAULTS", "shell")}
+
+cd "$(dirname "$0")"
+
+java @user_jvm_args.txt -jar server.jar --nogui "$@"
+""")
+    run_file.chmod(0o755)
+
+    make_jvm_args(args, directory)
+    
     user.user_own(user_info, directory)
 
 def _calculate_build(args):
