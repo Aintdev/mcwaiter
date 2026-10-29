@@ -269,9 +269,14 @@ def get_java_path(req_version: int) -> JavaVersion:
     for jdk_name, jdk_path in C.config.items("JAVA"):
         if not jdk_name.isnumeric():
             continue
+
+        main_version: int = int(jdk_name.split("-")[1])
+        if main_version < req_version:
+            continue
+
         java_versions.add(JavaVersion(
             display_name= f"{jdk_name}", 
-            main_version_id= int(jdk_name.split("-")[1]),
+            main_version_id= main_version,
             path= Path(jdk_path)
         ))
         if req_version == java_versions[-1].main_version_id:
@@ -290,6 +295,8 @@ def get_java_path(req_version: int) -> JavaVersion:
     for java in new:
         if java.main_version_id == req_version:
             return java
+        if java.main_version_id < req_version:
+            new.remove(java)
 
     java_versions |= new
 
