@@ -2,10 +2,9 @@ import json
 import os
 from pathlib import Path
 import shutil
-import subprocess
 import zipfile
 import questionary
-from mcwaiter.config import ensure_config, save_config
+from mcwaiter.config import ensure_config
 from mcwaiter.helpers import edit_file, is_windows, parse_loader, require_root, safe_path
 from mcwaiter.logger import logger as log
 from mcwaiter.errors import NoVersionFoundError, ServerStateError, UserCancelledError
