@@ -63,4 +63,31 @@ def edit_file(path: Path, param = None):
         return
     else:
         log.error("Invalid editor. Set editor in config by executing: 'mcwaiter config YOUR_EDITOR_HERE' and set it manually.")
-    
+
+def find_javas() -> set[i.JavaVersion]:
+    java_versions: set[i.JavaVersion] = set()
+
+    for java in Path("/usr/lib/jvm").glob("*/bin/java"):
+        if java.parent.parent.is_symlink():
+            continue
+
+        if java.is_file() and java.stat().st_mode & 0o111:
+            result = subprocess.run(
+                [str(java), "--version"],
+                capture_output=True,
+                text=True,
+                check=True,
+                cwd="/",
+            )
+
+            version = result.stdout.split()[1]
+            java_version = int(version.split(".")[0])
+
+            java_versions.add(i.JavaVersion(
+                display_name=java.parent.parent.name,
+                main_version_id=java_version,
+                path=java,
+                new_flag=True
+            ))
+
+    return java_versions

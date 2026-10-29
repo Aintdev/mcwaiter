@@ -1,10 +1,12 @@
 import argparse
+from dataclasses import dataclass, field
 from pathlib import Path
 import mcwaiter.helpers as h
 from mcwaiter.logger import logger as log
 import mcwaiter.constants as C
-from mcwaiter.errors import UserCancelledError
+from mcwaiter.errors import NoVersionFoundError, UserCancelledError
 from mcwaiter.requests import get_loaders
+from mcwaiter.config import save_config
 from typing import Any, Callable
 import questionary
 
@@ -249,6 +251,51 @@ def make_jvm_args(args, directory: Path) -> None:
     confirm = ask(questionary.confirm, "Do you want to edit the jvm args?")
     if confirm:
         h.edit_file(directory / "user_jvm_args.txt")
+
+@dataclass(frozen=True)
+class JavaVersion:
+    display_name: str
+    main_version_id: int | None = field(compare=False)
+    path: Path | None
+    new_flag: bool = False
+
+def get_java_path(req_version: int) -> JavaVersion:
+    java_version_auto = JavaVersion("Symlinc", -1, C.config.get("JAVA", "auto"))
+
+    java_versions: set[JavaVersion] = set()
+    java_versions.add(JavaVersion("Manually enter path", None, None))
+    java_versions.add(java_version_auto)
+
+    for jdk_name, jdk_path in C.config.items("JAVA"):
+        if not jdk_name.isnumeric():
+            continue
+        java_versions.add(JavaVersion(
+            display_name= f"{jdk_name}", 
+            main_version_id= int(jdk_name.split("-")[1]),
+            path= Path(jdk_path)
+        ))
+        if req_version == java_versions[-1].main_version_id:
+            return java_versions[-1]
+
+    new: set[JavaVersion] = h.find_javas()
+    diff = new - java_versions
+    added = False
+    for java in diff:
+        C.config.set("JAVA", java.display_name, str(java.path))
+        added = True
+
+    if added:
+        save_config()
+
+    for java in new:
+        if java.main_version_id == req_version:
+            return java
+
+    java_versions |= new
+
+    log.error("Didnt find avaialble Java version.")
+
+    raise NoVersionFoundError("Java version " + str(req_version) + " not found.")
 
 def ensure_data(args: argparse.Namespace, flags: int) -> argparse.Namespace:
     if flags:

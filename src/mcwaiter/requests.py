@@ -53,6 +53,21 @@ def _req_get(*args, **kwargs) -> requests.Response:
 def _req_post(*args, **kwargs) -> requests.Response:
     return _req("POST", *args, **kwargs)
 
+def get_java_version(minecraft_version: str) -> int:
+    manifest = _req_get(
+        "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json"
+    ).json()
+
+    version = next(
+        v for v in manifest["versions"]
+        if v["id"] == minecraft_version
+    )
+
+    version_data = requests.get(version["url"]).json()
+
+    log.debug("Required java version: " + str(version_data["javaVersion"]["majorVersion"]))
+    return version_data["javaVersion"]["majorVersion"]
+
 def get_loaders() -> dict:
     response = _req_get(C.API + "v2/types", timeout=10)
     data = response.json()

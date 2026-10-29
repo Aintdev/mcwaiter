@@ -8,8 +8,8 @@ from mcwaiter.config import ensure_config
 from mcwaiter.helpers import edit_file, is_windows, parse_loader, require_root, safe_path
 from mcwaiter.logger import logger as log
 from mcwaiter.errors import NoVersionFoundError, ServerStateError, UserCancelledError
-from mcwaiter.input import Build, parse_arguments, ensure_data, select_build, ask, make_jvm_args
-from mcwaiter.requests import download, get_builds
+from mcwaiter.input import Build, get_java_path, parse_arguments, ensure_data, select_build, ask, make_jvm_args
+from mcwaiter.requests import download, get_builds, get_java_version
 import mcwaiter.user as user
 import mcwaiter.constants as C
 import logging as logging
@@ -44,8 +44,8 @@ def main():
         log.info("Cancelled.")
     except ServerStateError as e:
         log.critical("ServerStateError: " + str(e))
-    except NoVersionFoundError:
-        log.error("No version for given parameters found.")
+    except NoVersionFoundError as e:
+        log.error("No version for given parameters found." if not e else e)
     return 0
 
 def server_exists(name: str):
@@ -170,7 +170,7 @@ f"""#!{C.config.get("DEFAULTS", "shell")}
 
 cd "$(dirname "$0")"
 
-java @user_jvm_args.txt -jar server.jar --nogui "$@"
+{get_java_path(get_java_version(args.version)).path} @user_jvm_args.txt -jar server.jar --nogui "$@"
 """)
     run_file.chmod(0o755)
 
