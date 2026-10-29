@@ -379,12 +379,13 @@ def confirm_with_ctrl_message(message: str, ctrl: str, **kwargs) -> bool:
     if not sucess: log.error("Incorrect.")
     return sucess
 
-def ask(prompt_type: Callable, message: str, **kwargs) -> Any:
+def ask(prompt_type: Callable, message: str, can_cancel=False, **kwargs) -> Any:
     while True:
         out = prompt_type(message, **kwargs).ask(kbi_msg="")
         if out is None:
-            raise UserCancelledError("Interrupted in User Input.")
-
+            if not can_cancel:
+                raise UserCancelledError("Interrupted in User Input.")
+            return False if prompt_type == questionary.confirm else None
         if isinstance(out, str):
             if out := out.strip():
                 return out

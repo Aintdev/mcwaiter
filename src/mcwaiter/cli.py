@@ -155,14 +155,6 @@ def _install(args, build: Build, directory: Path, user_info: user.UserInfo) -> N
             elif file.exists():
                 file.unlink()
 
-    eula_ask = ask(questionary.confirm, "Do you agree to the Minecraft EULA (https://aka.ms/MinecraftEULA)?", default=False)
-    eula_accept = "true" if eula_ask else "false"
-    with open(directory / "eula.txt", "w") as f:
-        f.write(
-f"""#By changing the setting below to TRUE you are indicating your agreement to our EULA (https://account.mojang.com/documents/minecraft_eula).
-eula={eula_accept}"""
-        )
-
     run_file = directory / "run.sh"
     with open(run_file, "w") as f:
         f.write(
@@ -175,6 +167,14 @@ cd "$(dirname "$0")"
     run_file.chmod(0o755)
 
     make_jvm_args(args, directory)
+
+    eula_ask = ask(questionary.confirm, "Do you agree to the Minecraft EULA (https://aka.ms/MinecraftEULA)?", can_cancel=True, default=False)
+    eula_accept = "true" if eula_ask else "false"
+    with open(directory / "eula.txt", "w") as f:
+        f.write(
+f"""#By changing the setting below to TRUE you are indicating your agreement to our EULA (https://account.mojang.com/documents/minecraft_eula).
+eula={eula_accept}"""
+        )
     
     user.user_own(user_info, directory)
 
