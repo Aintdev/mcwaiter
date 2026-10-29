@@ -28,7 +28,6 @@ def _req(method: str, *args, **kwargs) -> requests.Response:
         apilogs_dir.mkdir(parents=True, exist_ok=True)
 
         filename = (str(timestamp) + str(args[0][str(args[0]).find("api") + 4::]).lower()).replace("/", "-").replace(":", "-") + ".json"
-        log.debug(filename)
         file = apilogs_dir / filename
         log.debug("Created debug-log of API request at " + str(file))
         with open(file, "w") as f:
