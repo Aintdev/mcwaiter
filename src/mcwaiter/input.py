@@ -1,6 +1,8 @@
 import argparse
 from dataclasses import dataclass, field
+import json
 from pathlib import Path
+import subprocess
 import mcwaiter.helpers as h
 from mcwaiter.logger import logger as log
 import mcwaiter.constants as C
@@ -254,33 +256,36 @@ def make_jvm_args(args, directory: Path) -> None:
 
 @dataclass(frozen=True)
 class JavaVersion:
-    display_name: str
-    main_version_id: int | None = field(compare=False)
-    path: Path | None
-    new_flag: bool = False
+    display_name: str = field(compare=False)
+    main_version_id: int | None  = field(compare=True)
+    path: Path | None = field(compare=False)
+    new_flag: bool = field(default=False, compare=False)
 
 def get_java_path(req_version: int) -> JavaVersion:
-    java_version_auto = JavaVersion("Symlinc", -1, C.config.get("JAVA", "auto"))
+    java_version_auto = JavaVersion("Symlink", -1, C.config.get("JAVA", "auto"), new_flag=False)
 
     java_versions: set[JavaVersion] = set()
-    java_versions.add(JavaVersion("Manually enter path", None, None))
+    java_versions.add(JavaVersion("Manually enter path", None, None, False))
     java_versions.add(java_version_auto)
 
     for jdk_name, jdk_path in C.config.items("JAVA"):
-        if not jdk_name.isnumeric():
+        if jdk_name == "auto":
             continue
 
         main_version: int = int(jdk_name.split("-")[1])
         if main_version < req_version:
             continue
 
-        java_versions.add(JavaVersion(
+        ver = JavaVersion(
             display_name= f"{jdk_name}", 
             main_version_id= main_version,
             path= Path(jdk_path)
-        ))
-        if req_version == java_versions[-1].main_version_id:
-            return java_versions[-1]
+        )
+
+        if req_version == ver.main_version_id:
+            return ver
+        java_versions.add(ver)
+        
 
     new: set[JavaVersion] = h.find_javas()
     diff = new - java_versions
@@ -292,17 +297,55 @@ def get_java_path(req_version: int) -> JavaVersion:
     if added:
         save_config()
 
-    for java in new:
+    for java in new.copy():
+        if java.main_version_id < req_version or java in java_versions:
+            new.remove(java)
         if java.main_version_id == req_version:
             return java
-        if java.main_version_id < req_version:
-            new.remove(java)
 
     java_versions |= new
 
-    log.error("Didnt find avaialble Java version.")
+    log.error("Didn't automatically find avaialble Java version.")
 
+    if java_versions:
+        answer: JavaVersion = ask_java_version(java_versions, req_version)
+        if answer.display_name == "Manually enter path":
+            java = Path(ask(questionary.path, f"Please enter path to your Java {req_version} binary."))
+
+            try:
+                result = subprocess.run(
+                    [str(java), "--version"],
+                    capture_output=True,
+                    text=True,
+                    check=True,
+                    cwd="/",
+                )
+            except Exception as e:
+                raise NoVersionFoundError("Given path is not useable: " + str(e))
+                
+            version = result.stdout.split()[1]
+            java_version = int(version.split(".")[0])
+
+            if java_version >= req_version:
+                return JavaVersion(
+                    display_name=java.parent.parent.name,
+                    main_version_id=java_version,
+                    path=java
+                )
+        elif answer: return answer
     raise NoVersionFoundError("Java version " + str(req_version) + " not found.")
+
+def ask_java_version(versions: set[JavaVersion], req_version) -> JavaVersion:
+    options = [
+        questionary.Choice(
+            title=("[NEW] " if version.new_flag else "") + version.display_name,
+            value=version,
+        )
+        for version in versions if version.display_name not in ("Manually enter path", "Symlink") 
+    ]
+
+    options[:0] = [questionary.Choice(title=v.display_name, value=v) for v in versions if v.display_name in ("Manually enter path", "Symlink") ]
+    return ask(questionary.select, f"Select java version. Server expects java {req_version}", choices=options)
 
 def ensure_data(args: argparse.Namespace, flags: int) -> argparse.Namespace:
     if flags:
