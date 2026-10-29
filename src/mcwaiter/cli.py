@@ -95,8 +95,9 @@ def config(args):
 # Command "chown"
 
 def chown(args): 
+    require_root()
     ensure_server(args.name)
-    user.user_own(user.get_user(args.name), Path(C.config.get("DEFAULTS", "serverpath")) / args.name)
+    user.user_own(user.get_user(C.USER_PREFIX + args.name), Path(C.config.get("DEFAULTS", "serverpath")) / args.name)
 
 # Command "create"
 
