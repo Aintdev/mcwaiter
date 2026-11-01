@@ -4,12 +4,13 @@ from pathlib import Path
 import shutil
 import zipfile
 import questionary
-from mcwaiter.config import ensure_config
-from mcwaiter.helpers import edit_file, is_windows, parse_loader, require_root, safe_path
+from mcwaiter.config import create_server_config, ensure_config
+from mcwaiter.helpers import edit_file, is_windows, parse_loader, print_table, require_root, safe_path
 from mcwaiter.logger import logger as log
-from mcwaiter.errors import NoVersionFoundError, ServerStateError, UserCancelledError
+from mcwaiter.errors import NoManagerFoundError, NoVersionFoundError, ServerStateError, UnknownManagerError, UserCancelledError
 from mcwaiter.input import Build, get_java_path, parse_arguments, ensure_data, select_build, ask, make_jvm_args
 from mcwaiter.requests import download, get_builds, get_java_version
+import mcwaiter.service as sv
 import mcwaiter.user as user
 import mcwaiter.constants as C
 import logging as logging
@@ -40,29 +41,48 @@ def main():
             config(args)
         elif args.command == 'edit':
             edit(args)
+        elif args.command == 'start':
+            start(args)
+        elif args.command == 'stop':
+            stop(args)
+        elif args.command == 'status':
+            status(args)
+        elif args.command == 'ls':
+            ls(args)
+        elif args.command == 'autostart':
+            autostart(args)
     except (KeyboardInterrupt, UserCancelledError):
         log.info("Cancelled.")
     except ServerStateError as e:
         log.critical("ServerStateError: " + str(e))
     except NoVersionFoundError as e:
-        log.error("No version for given parameters found." if not e else e)
+        log.error("No version for given parameters found. " if not e else e)
+    except NoManagerFoundError as e:
+        log.error("No service manager found. " if not e else e)
     return 0
 
 def server_exists(name: str):
-    return user.user_exists(C.USER_PREFIX + name) and (Path(C.config.get("DEFAULTS", "serverpath")) / name).exists()
+    log.debug(str((Path(C.config.get("DEFAULTS", "serverpath")) / name / "server.jar").exists()) + str((Path(C.config.get("DEFAULTS", "serverpath")) / name / "server.jar")))
+    return \
+        user.user_exists(C.USER_PREFIX + name) \
+        and (Path(C.config.get("DEFAULTS", "serverpath")) / name).exists()
 
 def ensure_server(name: str):
     if not server_exists(name):
         raise ServerStateError(f"User or folder with name {name} not found.")
 
 def ensure_server_creatable(name: str):
-    if user.user_exists(C.USER_PREFIX + name) or (Path(C.config.get("DEFAULTS", "serverpath")) / name).exists():
+    if  user.user_exists(C.USER_PREFIX + name) \
+        or (
+            (Path(C.config.get("DEFAULTS", "serverpath")) / name).exists()
+            and not any((Path(C.config.get("DEFAULTS", "serverpath")) / name).iterdir())
+        ):
         raise ServerStateError(f"User or folder at {C.config.get("DEFAULTS", "serverpath")} with name {name} already exists.")
 
 # Command "edit"
 def edit(args):
-    ensure_server(args.name)
     require_root()
+    ensure_server(args.name)
     username = C.USER_PREFIX + args.name
 
     server_dir = safe_path(Path(C.config.get("DEFAULTS", "serverpath")), str(Path(args.name)))
@@ -75,11 +95,13 @@ def edit(args):
 # Command "shell"
 
 def shell(args):
-    username = C.USER_PREFIX + args.name
+    require_root()
+    ensure_server(args.name)
+    this_user = user.get_user(C.USER_PREFIX + args.name)
 
     os.execvp("sudo", [
         "sudo",
-        "-u", username,
+        "-u", this_user.username,
         "-H",
         "sh", "-c", 'cd "$HOME" && exec "$0"',
         C.config.get("DEFAULTS", "shell"),
@@ -101,8 +123,8 @@ def chown(args):
 # Command "create"
 
 def create(args):
-    ensure_server_creatable(args.name)
     require_root()
+    ensure_server_creatable(args.name)
 
     args = ensure_data(args, C.ALL_CREATE_F)
     log.info("Creating.")
@@ -168,6 +190,8 @@ cd "$(dirname "$0")"
 
     make_jvm_args(args, directory)
 
+    create_server_config(directory)
+
     eula_ask = ask(questionary.confirm, "Do you agree to the Minecraft EULA (https://aka.ms/MinecraftEULA)?", can_cancel=True, default=False)
     eula_accept = "true" if eula_ask else "false"
     with open(directory / "eula.txt", "w") as f:
@@ -206,8 +230,8 @@ def _calculate_build(args):
 # Command "delete"
 
 def delete(args, /, _force = False):
-    ensure_server(args.name)
     require_root()
+    ensure_server(args.name)
 
     if not _force: 
         ensure_data(args, C.ALL_DELETE_F)
@@ -215,6 +239,64 @@ def delete(args, /, _force = False):
             return
     log.info("Deleting." if not _force else "Reverting.")
 
-    user.delete_user(C.USER_PREFIX + args.name, remove_home=True)
+    stop(args)
 
-# Command "setup"
+    user.delete_user(C.USER_PREFIX + args.name, remove_home=True)
+    cfg_file: Path = Path(C.config.get("DEFAULTS", "serverpath")) / (args.name + ".ini")
+    cfg_file.unlink(missing_ok=True)
+
+def start(args):
+    require_root()
+    ensure_server(args.name)
+    
+    server_dir = Path(C.config.get("DEFAULTS", "serverpath")) / args.name
+    try:
+        sv.start(server_dir, sv.get_service_manager())
+    except UnknownManagerError:
+        log.critical("Manager is not supported by mcwaiter.")
+
+def stop(args):
+    require_root()
+    ensure_server(args.name)
+    
+    server_dir = Path(C.config.get("DEFAULTS", "serverpath")) / args.name
+    try:
+        sv.stop(server_dir, sv.get_service_manager())
+    except UnknownManagerError:
+        log.critical("Manager is not supported by mcwaiter.")
+
+def status(args):
+    ensure_server(args.name)
+    
+    server_dir = Path(C.config.get("DEFAULTS", "serverpath")) / args.name
+    try:
+        sv.status(server_dir, sv.get_service_manager())
+    except UnknownManagerError:
+        log.critical("Manager is not supported by mcwaiter.")
+
+def ls(args):
+    serverpath = Path(C.config.get("DEFAULTS", "serverpath"))
+    manager = sv.get_service_manager()
+
+    rows = []
+
+    for path in sorted(serverpath.iterdir()):
+        if not path.is_dir():
+            continue
+
+        running = sv.status(path, manager, silent=True)
+
+        rows.append([
+            path.name,
+            "Yes" if running.returncode == 0 else "No",
+            str(path),
+        ])
+
+    if not rows:
+        print("No servers found.")
+        return
+
+    print_table(["Name", "Running", "Path"], rows)
+
+def autostart(args):
+    pass

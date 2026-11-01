@@ -27,15 +27,15 @@ def parse_arguments():
     subparser = parser.add_subparsers(
         dest="command",
         required=True,
+        metavar='{command}',
     )
 
     shell = subparser.add_parser(
         "shell",
         help="Opens shell as that servers user."
     )
-
-    shell.add_argument("name", type=str, help="Name of the Minecraft Server.")
     add_global_arguments(shell)
+    shell.add_argument("name", type=str, help="Name of the Minecraft Server.")
 
     edit = subparser.add_parser(
         "edit",
@@ -53,12 +53,6 @@ def parse_arguments():
     
     chown.add_argument("name", type=str, help="Name of the Minecraft Server.")
     add_global_arguments(chown)
-
-    setup = subparser.add_parser(
-        "setup",
-        help="Setup mcwaiter to be used.",
-    )
-    add_global_arguments(setup)
 
     create = subparser.add_parser(
         "create", 
@@ -85,12 +79,7 @@ def parse_arguments():
         help="Deletes a Minecraft Server"
     )
     add_global_arguments(delete)
-
-    delete.add_argument(
-        "name", 
-        type=str
-    )
-
+    delete.add_argument("name", type=str, help="Name of the Minecraft Server.")
     delete.add_argument(
         "--confirm-override",
         action="store_true",
@@ -104,10 +93,30 @@ def parse_arguments():
     add_global_arguments(config)
 
     config.add_argument(
-        "editor",
+        "-e",
+        "--editor",
         nargs="?",
         type=str,
     )
+
+    config.add_argument("-n", "--name", type=str, help="Name of the Minecraft Server.", default=None)
+
+    start = subparser.add_parser("start", help="Start a server")
+    add_global_arguments(start)
+    start.add_argument("name", type=str, help="Name of the Minecraft Server.")
+
+    stop = subparser.add_parser("stop", help="Stop a server")
+    add_global_arguments(stop)
+    stop.add_argument("name", type=str, help="Name of the Minecraft Server.")
+
+    status = subparser.add_parser("status", help="Get status of Server.")
+    add_global_arguments(status)
+    status.add_argument("name", type=str, help="Name of the Minecraft Server.")
+
+    ls = subparser.add_parser("ls", help="See all installed Servers")
+    add_global_arguments(ls)
+
+    autostart = subparser.add_parser("autostart", description="Start all servers that have auto_start enabled in alphabetic order.")
     
     args = parser.parse_args()
 

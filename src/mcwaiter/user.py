@@ -19,6 +19,7 @@ class UserInfo:
     primary_group: str
 
 def validate_username(username: str) -> bool:
+    username = username.lower()
     return bool(
         isinstance(username, str)
         and _USERNAME_PATTERN.fullmatch(username)
@@ -35,6 +36,7 @@ def sudo_permissions_fix(path: Path) -> None:
         user_own(get_user(sudo_user), path)
 
 def user_exists(username: str) -> bool:
+    username = username.lower()
     try:
         pwd.getpwnam(username)
         return True
@@ -42,6 +44,7 @@ def user_exists(username: str) -> bool:
         return False
 
 def get_user(username: str) -> UserInfo:
+    username = username.lower()
     try:
         entry = pwd.getpwnam(username)
     except KeyError:
@@ -62,6 +65,7 @@ def get_user(username: str) -> UserInfo:
     )
 
 def create_user(username: str, homedir: Path) -> None:
+    username = username.lower()
     if not validate_username(username):
         raise ValueError(f"Invalid username: {username}")
 
@@ -87,6 +91,7 @@ def create_user(username: str, homedir: Path) -> None:
     subprocess.run(command, check=True)
 
 def delete_user(username: str, *, remove_home: bool = False) -> None:
+    username = username.lower()
     if not validate_username(username):
         raise ValueError(f"Invalid username: {username}")
 
@@ -105,6 +110,7 @@ def delete_user(username: str, *, remove_home: bool = False) -> None:
     subprocess.run(command, check=True)
 
 def ensure_user(username: str) -> UserInfo:
+    username = username.lower()
     if not validate_username(username):
         raise ValueError(f"Invalid username: {username}")
 

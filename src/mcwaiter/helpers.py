@@ -64,30 +64,76 @@ def edit_file(path: Path, param = None):
     else:
         log.error("Invalid editor. Set editor in config by executing: 'mcwaiter config YOUR_EDITOR_HERE' and set it manually.")
 
+import re
+import subprocess
+from pathlib import Path
+
+
 def find_javas() -> set[i.JavaVersion]:
     java_versions: set[i.JavaVersion] = set()
 
     for java in Path("/usr/lib/jvm").glob("*/bin/java"):
-        if java.parent.parent.is_symlink():
-            continue
+        try:
+            if java.parent.parent.is_symlink():
+                continue
 
-        if java.is_file() and java.stat().st_mode & 0o111:
+            if not java.is_file() or not java.stat().st_mode & 0o111:
+                continue
+
             result = subprocess.run(
-                [str(java), "--version"],
+                [str(java), "-version"],
                 capture_output=True,
                 text=True,
-                check=True,
+                check=False,
                 cwd="/",
+                timeout=5,
             )
 
-            version = result.stdout.split()[1]
-            java_version = int(version.split(".")[0])
+            output = result.stdout + "\n" + result.stderr
+
+            if result.returncode != 0:
+                continue
+
+            match = re.search(
+                r'version\s+"?(\d+)(?:\.(\d+))?',
+                output,
+                re.IGNORECASE,
+            )
+
+            if not match:
+                continue
+
+            major = int(match.group(1))
+
+            if major == 1 and match.group(2):
+                major = int(match.group(2))
 
             java_versions.add(i.JavaVersion(
                 display_name=java.parent.parent.name,
-                main_version_id=java_version,
+                main_version_id=major,
                 path=java,
-                new_flag=True
+                new_flag=True,
             ))
 
+        except (OSError, subprocess.SubprocessError, ValueError):
+            continue
+
     return java_versions
+
+def print_table(headers: list[str], rows: list[list[str]]) -> None:
+    widths = [
+        max(len(str(row[i])) for row in [headers, *rows])
+        for i in range(len(headers))
+    ]
+
+    def format_row(row):
+        return "  ".join(
+            str(value).ljust(widths[i])
+            for i, value in enumerate(row)
+        )
+
+    print(format_row(headers))
+    print("  ".join("-" * width for width in widths))
+
+    for row in rows:
+        print(format_row(row))

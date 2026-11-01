@@ -13,3 +13,11 @@ class ServerStateError(BaseException):
 class NoVersionFoundError(BaseException):
     def __init__(self, *args):
         super().__init__(*args)
+
+class NoManagerFoundError(BaseException):
+    def __init__(self, *args):
+        super().__init__(*args)
+
+class UnknownManagerError(BaseException):
+    def __init__(self, *args):
+        super().__init__(*args)
