@@ -37,10 +37,16 @@ def require_root():
 
     script = Path(sys.argv[0]).resolve()
 
-    subprocess.run(
-        ["sudo", sys.executable, str(script), *sys.argv[1:]],
-        check=True,
-    )
+    try:
+        subprocess.run(
+            ["sudo", sys.executable, str(script), *sys.argv[1:]],
+            check=True,
+        )
+    except subprocess.CalledProcessError as e:
+        if e.returncode == 130:
+            sys.exit(130)
+        raise
+
     sys.exit(0)
 
 def safe_path(base: Path, relative: str) -> Path:
