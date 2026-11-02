@@ -113,6 +113,10 @@ def parse_arguments():
     add_global_arguments(status)
     status.add_argument("name", type=str, help="Name of the Minecraft Server.")
 
+    console = subparser.add_parser("console", help="Open console of server.")
+    add_global_arguments(console)
+    console.add_argument("name", type=str, help="Name of the Minecraft Server.")
+
     ls = subparser.add_parser("ls", help="See all installed Servers")
     add_global_arguments(ls)
 

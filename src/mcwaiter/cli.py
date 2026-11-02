@@ -5,6 +5,7 @@ import shutil
 import zipfile
 import questionary
 from mcwaiter.config import create_server_config, ensure_config
+from mcwaiter.console import Console, RconDetails
 from mcwaiter.helpers import edit_file, is_windows, parse_loader, print_table, require_root, safe_path
 from mcwaiter.logger import logger as log
 from mcwaiter.errors import NoManagerFoundError, NoVersionFoundError, ServerStateError, UnknownManagerError, UserCancelledError
@@ -47,6 +48,8 @@ def main():
             stop(args)
         elif args.command == 'status':
             status(args)
+        elif args.command == 'console':
+            console(args)
         elif args.command == 'ls':
             ls(args)
         elif args.command == 'autostart':
@@ -182,6 +185,9 @@ def _install(args, build: Build, directory: Path, user_info: user.UserInfo) -> N
             elif file.exists():
                 file.unlink()
 
+    java_bin = Path(get_java_path(get_java_version(args.version)).path)
+    java_home = java_bin.parent.parent
+
     run_file = directory / "run.sh"
     with open(run_file, "w") as f:
         f.write(
@@ -189,7 +195,13 @@ f"""#!{C.config.get("DEFAULTS", "shell")}
 
 cd "$(dirname "$0")"
 
-{get_java_path(get_java_version(args.version)).path} @user_jvm_args.txt -jar server.jar --nogui "$@"
+export JAVA_HOME="{java_home}"
+export PATH="$JAVA_HOME/bin:$PATH"
+
+# Read JVM args manually: @argfiles only exist since Java 9
+mapfile -t JVM_ARGS < <(grep -vE '^[[:space:]]*(#|$)' user_jvm_args.txt | tr -d '\\r')
+
+"$JAVA_HOME/bin/java" "${{JVM_ARGS[@]}}" -jar server.jar --nogui "$@"
 """)
     run_file.chmod(0o755)
 
@@ -278,6 +290,15 @@ def status(args):
         sv.status(server_dir, sv.get_service_manager())
     except UnknownManagerError:
         log.critical("Manager is not supported by mcwaiter.")
+
+def console(args):
+    require_root()
+    ensure_server(args.name)
+    try:
+        Console(f"minecraft-{args.name}", RconDetails(25575, "1234")).run() # temporary
+    except ConnectionRefusedError:
+        Console(f"minecraft-{args.name}").run()
+        
 
 def ls(args):
     serverpath = Path(C.config.get("DEFAULTS", "serverpath"))

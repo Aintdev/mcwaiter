@@ -25,7 +25,8 @@ dependencies = [
     "questionary",
     "platformdirs",
     "requests",
-    "tqdm"
+    "tqdm",
+    "rcon"
 ]
 
 [project.scripts]
