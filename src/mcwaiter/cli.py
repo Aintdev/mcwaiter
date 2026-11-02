@@ -111,7 +111,12 @@ def shell(args):
 
 def config(args):
     ensure_data(args, C.EDITOR_F)
-    edit_file(C.CONFIG_FILE, args.editor)
+
+    if args.name:
+        require_root()
+        ensure_server(args.name)
+        return edit_file(Path(C.config.get("DEFAULTS", "serverpath")) / (args.name + ".ini"), args.editor)
+    return edit_file(C.CONFIG_FILE, args.editor)
 
 # Command "chown"
 

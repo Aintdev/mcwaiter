@@ -99,7 +99,7 @@ def parse_arguments():
         type=str,
     )
 
-    config.add_argument("-n", "--name", type=str, help="Name of the Minecraft Server.", default=None)
+    config.add_argument("-n", "--name", type=str, help="Name of the Minecraft Server.", required=False)
 
     start = subparser.add_parser("start", help="Start a server")
     add_global_arguments(start)
