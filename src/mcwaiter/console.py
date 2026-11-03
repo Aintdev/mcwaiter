@@ -67,6 +67,8 @@ def console(stdscr, jrn: ConsolePopen, logs: queue.Queue, rcon: RconClient):
 
     history = []
     user_input = ""
+    cur_idx = 0
+    newest_lock = True
 
     while jrn.poll() is None:
         while not logs.empty():
@@ -75,7 +77,10 @@ def console(stdscr, jrn: ConsolePopen, logs: queue.Queue, rcon: RconClient):
         stdscr.erase()
 
         # Server output
-        for y, line in enumerate(history[-(height - 1):]):
+        cur_idx = len(history) - 1 if newest_lock else cur_idx
+        visible = height - 2
+        start = max(0, cur_idx - visible + 1)
+        for y, line in enumerate(history[start:cur_idx + 1]):
             stdscr.addnstr(y, 0, line, width - 1)
 
         # Input
@@ -106,8 +111,8 @@ def console(stdscr, jrn: ConsolePopen, logs: queue.Queue, rcon: RconClient):
         elif key in ("\n", "\r", curses.KEY_ENTER):
             if user_input.strip():
                 response = rcon.run(user_input)
-                if response:
-                    logs.put(response)
+                for line in response.splitlines():
+                    logs.put(line.rstrip("\n"))
             user_input = ""
 
         elif key in ("\b", "\x7f", curses.KEY_BACKSPACE):
