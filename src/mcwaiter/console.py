@@ -67,6 +67,7 @@ def console(stdscr, jrn: ConsolePopen, logs: queue.Queue, rcon: RconClient):
 
     history = []
     rcon_history = []
+    rcon_temp_cache = ""
     rcon_history_idx = 0
     user_input = ""
     cur_idx = 0
@@ -112,6 +113,8 @@ def console(stdscr, jrn: ConsolePopen, logs: queue.Queue, rcon: RconClient):
         elif key == curses.KEY_UP:
             if len(rcon_history) > rcon_history_idx:
                 if old_input := rcon_history[-(rcon_history_idx + 1)]:
+                    if rcon_history_idx == 0:
+                        rcon_temp_cache = user_input
                     rcon_history_idx += 1
                     user_input = old_input
 
@@ -122,12 +125,14 @@ def console(stdscr, jrn: ConsolePopen, logs: queue.Queue, rcon: RconClient):
                     user_input = old_input
             else:
                 rcon_history_idx = 0
-                user_input = ""
+                if rcon_temp_cache:
+                    user_input = rcon_temp_cache
 
         elif key in ("\n", "\r", curses.KEY_ENTER):
             if user_input.strip():
                 rcon_history_idx = 0
                 rcon_history.append(user_input)
+                rcon_temp_cache = ""
                 response = rcon.run(user_input)
                 for line in response.splitlines():
                     logs.put(line.rstrip("\n"))
