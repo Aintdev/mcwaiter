@@ -66,6 +66,8 @@ def console(stdscr, jrn: ConsolePopen, logs: queue.Queue, rcon: RconClient):
     rcon_on = isinstance(rcon, RconClient)
 
     history = []
+    rcon_history = []
+    rcon_history_idx = 0
     user_input = ""
     cur_idx = 0
     newest_lock = True
@@ -82,9 +84,8 @@ def console(stdscr, jrn: ConsolePopen, logs: queue.Queue, rcon: RconClient):
         start = max(0, cur_idx - visible + 1)
         for y, line in enumerate(history[start:cur_idx + 1]):
             stdscr.addnstr(y, 0, line, width - 1)
-
         # Input
-        prompt = "command: " + ("" if rcon_on else "DISABLED")
+        prompt = f"{rcon_history_idx} cmd: " + ("" if rcon_on else "[DISABLED]")
         stdscr.addstr(height - 1, 0, prompt)
         stdscr.addnstr(
             height - 1,
@@ -106,10 +107,27 @@ def console(stdscr, jrn: ConsolePopen, logs: queue.Queue, rcon: RconClient):
             continue
 
         if not rcon_on:
-            continue
+            pass
+
+        elif key == curses.KEY_UP:
+            if len(rcon_history) > rcon_history_idx:
+                if old_input := rcon_history[-(rcon_history_idx + 1)]:
+                    rcon_history_idx += 1
+                    user_input = old_input
+
+        elif key == curses.KEY_DOWN:
+            if rcon_history_idx - 1 > 0:
+                if old_input := rcon_history[-(rcon_history_idx - 1)]:
+                    rcon_history_idx -= 1
+                    user_input = old_input
+            else:
+                rcon_history_idx = 0
+                user_input = ""
 
         elif key in ("\n", "\r", curses.KEY_ENTER):
             if user_input.strip():
+                rcon_history_idx = 0
+                rcon_history.append(user_input)
                 response = rcon.run(user_input)
                 for line in response.splitlines():
                     logs.put(line.rstrip("\n"))
