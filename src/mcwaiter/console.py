@@ -140,6 +140,7 @@ def console(stdscr, jrn: ConsolePopen, logs: queue.Queue, rcon: RconClient):
 
         elif key in ("\b", "\x7f", curses.KEY_BACKSPACE):
             user_input = user_input[:-1]
+            rcon_history_idx = 0
 
         elif isinstance(key, str) and key.isprintable():
             user_input += key
