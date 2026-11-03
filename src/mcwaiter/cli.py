@@ -291,15 +291,38 @@ def status(args):
     except UnknownManagerError:
         log.critical("Manager is not supported by mcwaiter.")
 
+def _get_rcon_details(instance_name: str):
+    server_prop_path: Path = Path(C.config.get("DEFAULTS", "serverpath")) / instance_name / "server.properties"
+    if server_prop_path.exists():
+        pw = None
+        port = None
+        lines = []
+        with open(server_prop_path, "r") as f:
+            lines = f.readlines()
+
+        for line in lines:
+            if line.startswith("enable-rcon") and line.endswith("false"):
+                return None
+
+            if line.startswith("rcon.password"):
+                pw = line.replace(" ", "").split("=")[1].strip()
+            elif line.startswith("rcon.port"):
+                port = int(line.replace(" ", "").split("=")[1].strip())
+
+        return RconDetails(port, pw)
+    return None
+
+
 def console(args):
     require_root()
     ensure_server(args.name)
+
     try:
-        Console(f"minecraft-{args.name}", RconDetails(25575, "1234")).run() # temporary
+        rcon = _get_rcon_details(args.name)
+        Console(f"minecraft-{args.name}", rcon).run()
     except ConnectionRefusedError:
         Console(f"minecraft-{args.name}").run()
         
-
 def ls(args):
     serverpath = Path(C.config.get("DEFAULTS", "serverpath"))
     manager = sv.get_service_manager()
