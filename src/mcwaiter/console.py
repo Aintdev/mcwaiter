@@ -138,3 +138,4 @@ def console(stdscr, jrn: ConsolePopen, logs: queue.Queue, rcon: RconClient):
 
         elif isinstance(key, str) and key.isprintable():
             user_input += key
+            rcon_history_idx = 0
