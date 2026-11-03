@@ -123,10 +123,9 @@ def console(stdscr, jrn: ConsolePopen, logs: queue.Queue, rcon: RconClient):
                 if old_input := rcon_history[-(rcon_history_idx - 1)]:
                     rcon_history_idx -= 1
                     user_input = old_input
-            else:
+            elif rcon_history_idx > 0:
                 rcon_history_idx = 0
-                if rcon_temp_cache:
-                    user_input = rcon_temp_cache
+                user_input = rcon_temp_cache
 
         elif key in ("\n", "\r", curses.KEY_ENTER):
             if user_input.strip():
