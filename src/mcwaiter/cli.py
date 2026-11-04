@@ -322,6 +322,8 @@ def console(args):
         Console(f"minecraft-{args.name}", rcon).run()
     except ConnectionRefusedError:
         Console(f"minecraft-{args.name}").run()
+    except KeyboardInterrupt:
+        return
         
 def ls(args):
     serverpath = Path(C.config.get("DEFAULTS", "serverpath"))
