@@ -3,7 +3,6 @@ import curses
 import queue
 import subprocess
 import threading
-from mcwaiter.helpers import require_root
 from rcon.source import Client as RconClient
 
 @dataclass(frozen=True)
@@ -34,7 +33,7 @@ class Console:
 
     def journal_conn(self):
         return ConsolePopen(
-            ["journalctl", "-u", self.service, "-f", "-o", "cat"],
+            ["journalctl", "-u", self.service, "-f", "-n", "all", "-o", "cat"],
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
@@ -61,6 +60,10 @@ class Console:
 
 def console(stdscr, jrn: ConsolePopen, logs: queue.Queue, rcon: RconClient):
     curses.curs_set(1)
+    try:
+        curses.use_default_colors()
+    except curses.error:
+        pass
     stdscr.timeout(50)
 
     rcon_on = isinstance(rcon, RconClient)
@@ -86,7 +89,7 @@ def console(stdscr, jrn: ConsolePopen, logs: queue.Queue, rcon: RconClient):
         for y, line in enumerate(history[start:cur_idx + 1]):
             stdscr.addnstr(y, 0, line, width - 1)
         # Input
-        prompt = f"{rcon_history_idx} cmd: " + ("" if rcon_on else "[DISABLED]")
+        prompt = f"{rcon_history_idx}|{cur_idx} cmd: " + ("" if rcon_on else "[DISABLED]")
         stdscr.addstr(height - 1, 0, prompt)
         stdscr.addnstr(
             height - 1,
@@ -136,6 +139,17 @@ def console(stdscr, jrn: ConsolePopen, logs: queue.Queue, rcon: RconClient):
                 for line in response.splitlines():
                     logs.put(line.rstrip("\n"))
             user_input = ""
+
+        elif key == curses.KEY_PPAGE:
+            new = cur_idx - (visible // 3)
+            cur_idx = max(min(len(history), visible - 1), new)
+            newest_lock = False
+        
+        elif key == curses.KEY_NPAGE:
+            new = cur_idx + (visible // 3)
+            cur_idx = min(len(history) - 1, new)
+            if cur_idx == len(history) - 1:
+                newest_lock = True
 
         elif key in ("\b", "\x7f", curses.KEY_BACKSPACE):
             user_input = user_input[:-1]
