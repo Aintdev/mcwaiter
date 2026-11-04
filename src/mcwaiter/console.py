@@ -68,6 +68,13 @@ def console(stdscr, jrn: ConsolePopen, logs: queue.Queue, rcon: RconClient):
 
     rcon_on = isinstance(rcon, RconClient)
 
+    def wrap(line, width):
+        w = max(70, width - 1)
+        return [line[i:i + w] for i in range(0, len(line), w)] or [""]
+
+    raw = []
+    history = []
+    last_width = None
     history = []
     rcon_history = []
     rcon_temp_cache = ""
@@ -77,11 +84,19 @@ def console(stdscr, jrn: ConsolePopen, logs: queue.Queue, rcon: RconClient):
     newest_lock = True
 
     while jrn.poll() is None:
-        while not logs.empty():
-            history.append(logs.get_nowait())
         height, width = stdscr.getmaxyx()
         stdscr.erase()
 
+        while not logs.empty():
+            line = logs.get_nowait()
+            raw.append(line)
+            history.extend(wrap(line, width))
+
+        if width != last_width:
+            history = [part for line in raw for part in wrap(line, width)]
+            last_width = width
+            newest_lock = True
+        
         # Server output
         cur_idx = len(history) - 1 if newest_lock else cur_idx
         visible = height - 2
