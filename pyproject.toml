@@ -14,7 +14,7 @@ authors = [
 ]
 keywords = ["minecraft", "server", "configurator", "mcserver"]
 classifiers = [
-    "Development Status :: 1 - Planning",
+    "Development Status :: 4 - Beta",
     "Environment :: Console",
     "License :: OSI Approved :: MIT License",
     "Operating System :: Unix",
