@@ -127,62 +127,68 @@ def _start_sysd(path_to_instance: Path):
     subprocess.run(command, check=True)
 
 def _get_properties_sysd(serv_cfg: configparser.ConfigParser) -> list[str]:
-    def get_option(key: str) -> str:
+    def get_option(key: str):
         override = serv_cfg.get("OVERRIDES", key, fallback="").strip()
-        if override:
-            return override
-        return C.config.get("SERVICE", key)
+        return override if override else C.config.get("SERVICE", key)
+    
+    def get_boolean(key):
+        override = serv_cfg.get("OVERRIDES", key, fallback="").strip()
+        section = "OVERRIDES" if override else "SERVICE"
+        return (
+            serv_cfg.getboolean(section, key)
+            if override else C.config.getboolean("SERVICE", key)
+        )
 
     properties = []
 
     def add_property(name: str, value: str) -> None:
         properties.append(f"--property={name}={value}")
 
-    if get_option("harden").lower() == "true":
+    if get_boolean("harden"):
         add_property("NoNewPrivileges", "yes")
         add_property("RestrictSUIDSGID", "yes")
         add_property("LockPersonality", "yes")
         add_property("RestrictRealtime", "yes")
 
-    if get_option("network-isolation").lower() == "true":
+    if get_boolean("network-isolation"):
         add_property("PrivateNetwork", "yes")
-    elif get_option("deny-network").lower() == "true":
+    elif get_boolean("deny-network"):
         add_property("IPAddressDeny", "any")
 
-    if get_option("private-tmp").lower() == "true":
+    if get_boolean("private-tmp"):
         add_property("PrivateTmp", "yes")
 
-    if get_option("private-devices").lower() == "true":
+    if get_boolean("private-devices"):
         add_property("PrivateDevices", "yes")
 
-    if get_option("protect-kernel").lower() == "true":
+    if get_boolean("protect-kernel"):
         add_property("ProtectKernelTunables", "yes")
         add_property("ProtectKernelModules", "yes")
         add_property("ProtectKernelLogs", "yes")
         add_property("ProtectControlGroups", "yes")
 
-    if get_option("read-only-system").lower() == "true":
+    if get_boolean("read-only-system"):
         add_property("ProtectSystem", "strict")
         add_property("ProtectHome", "yes")
 
-    auto_restart = get_option("auto-restart").lower()
-    if auto_restart:
+    auto_restart = get_option("auto-restart")
+    if auto_restart and auto_restart.lower() != "no":
         add_property("Restart", auto_restart)
 
-    restart_delay = get_option("restart-sec").lower()
-    if restart_delay:
+    restart_delay = get_option("restart-sec")
+    if restart_delay and restart_delay != "0":
         add_property("RestartSec", restart_delay)
 
     memory = get_option("memory-limit")
-    if memory != "0":
+    if memory and memory != "0":
         add_property("MemoryMax", memory)
 
     cpu = get_option("cpu-quota")
-    if cpu != "0":
+    if cpu and cpu != "0":
         add_property("CPUQuota", cpu)
 
     tasks = get_option("tasks-limit")
-    if tasks != "0":
+    if tasks and tasks != "0":
         add_property("TasksMax", tasks)
 
     return properties
