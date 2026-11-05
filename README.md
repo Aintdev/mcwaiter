@@ -214,4 +214,4 @@ mcwaiter --help
 
 ## License
 
-[MIT](LICENSE)
+[MIT](https://github.com/Aintdev/mcwaiter/blob/master/LICENSE)
