@@ -96,7 +96,7 @@ def _test_manager(manager: ServiceManager) -> bool:
     matches_expected_response = (result.stdout.strip() == manager.running_response) if manager.running_response else True
     return result.returncode == 0 and matches_expected_response
 
-# systemd
+## systemd
 
 def _start_sysd(path_to_instance: Path):
     command = [
