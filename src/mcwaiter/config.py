@@ -17,6 +17,8 @@ DEFAULT_CONFIG = {
         "auto": f"{shutil.which('java') or 'java'}"
     },
     "SERVICE": {
+        "auto-restart": "on-failure",
+        "restart-sec": "5s",
         "harden": "true",
         "network-isolation": "false",
         "deny-network": "false",

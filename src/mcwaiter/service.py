@@ -150,6 +150,14 @@ def _get_properties_sysd(serv_cfg: configparser.ConfigParser) -> list[str]:
         add_property("ProtectSystem", "strict")
         add_property("ProtectHome", "yes")
 
+    auto_restart = get_option("auto-restart").lower()
+    if auto_restart:
+        add_property("Restart", auto_restart)
+
+    restart_delay = get_option("restart-sec").lower()
+    if restart_delay:
+        add_property("RestartSec", restart_delay)
+
     memory = get_option("memory-limit")
     if memory != "0":
         add_property("MemoryMax", memory)
