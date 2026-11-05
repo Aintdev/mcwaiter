@@ -109,6 +109,10 @@ def parse_arguments():
     add_global_arguments(stop)
     stop.add_argument("name", type=str, help="Name of the Minecraft Server.")
 
+    restart = subparser.add_parser("restart", help="Restart a server")
+    add_global_arguments(restart)
+    restart.add_argument("name", type=str, help="Name of the Minecraft Server.")
+
     status = subparser.add_parser("status", help="Get status of Server.")
     add_global_arguments(status)
     status.add_argument("name", type=str, help="Name of the Minecraft Server.")

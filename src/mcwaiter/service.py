@@ -215,8 +215,13 @@ def _status_sysd(path_to_instance: Path, silent):
         stderr=subprocess.DEVNULL if silent else None,
     )
 
-def _restart_sysd(path_to_instance):
-    ...
+def _restart_sysd(path_to_instance) -> str:
+    command = [
+        "systemctl",
+        "restart", f"minecraft-{path_to_instance.name}"
+    ]
+    
+    return subprocess.run(command, check=False)
 
 def _deamon_reload() -> None:
     subprocess.run(

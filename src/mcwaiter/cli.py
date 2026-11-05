@@ -46,6 +46,8 @@ def main():
             start(args)
         elif args.command == 'stop':
             stop(args)
+        elif args.command == 'restart':
+            restart(args)
         elif args.command == 'status':
             status(args)
         elif args.command == 'console':
@@ -279,6 +281,16 @@ def stop(args):
     server_dir = Path(C.config.get("DEFAULTS", "serverpath")) / args.name
     try:
         sv.stop(server_dir, sv.get_service_manager())
+    except UnknownManagerError:
+        log.critical("Manager is not supported by mcwaiter.")
+
+def restart(args):
+    require_root()
+    ensure_server(args.name)
+    
+    server_dir = Path(C.config.get("DEFAULTS", "serverpath")) / args.name
+    try:
+        sv.restart(server_dir, sv.get_service_manager())
     except UnknownManagerError:
         log.critical("Manager is not supported by mcwaiter.")
 
