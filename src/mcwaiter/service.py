@@ -3,6 +3,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import mcwaiter.config as config
 from mcwaiter.errors import NoManagerFoundError, UnknownManagerError
 import mcwaiter.constants as C
@@ -70,6 +71,20 @@ def restart(path_to_instance: Path, manager: ServiceManager):
     match manager.displayname:
         case "systemd":
             return _restart_sysd(path_to_instance)
+        case _:
+            raise UnknownManagerError('Service-Manager "' + manager.displayname + '" is not supported.')
+
+def enable_autostart(manager: ServiceManager):
+    match manager.displayname:
+        case "systemd":
+            return _enable_autostart_sysd()
+        case _:
+            raise UnknownManagerError('Service-Manager "' + manager.displayname + '" is not supported.')
+
+def disable_autostart(manager: ServiceManager):
+    match manager.displayname:
+        case "systemd":
+            return _disable_autostart_sysd()
         case _:
             raise UnknownManagerError('Service-Manager "' + manager.displayname + '" is not supported.')
 
@@ -196,3 +211,57 @@ def _status_sysd(path_to_instance: Path, silent):
 
 def _restart_sysd(path_to_instance):
     ...
+
+def _deamon_reload() -> None:
+    subprocess.run(
+        ["systemctl", "daemon-reload"],
+        capture_output=True,
+        text=True,
+        check=True
+    )
+
+def _enable_autostart_sysd() -> None:
+    service = "mcwaiter-autostart"
+    service_file = Path("/etc/systemd/system") / (service + ".service")
+    if not service_file.exists():
+        with open(service_file, "w") as f:
+            f.write(
+f"""[Unit]
+Description=mcwaiter Minecraft Server Autostart
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart={Path(sys.argv[0]).resolve()} autostart --run
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+""")
+    
+    _deamon_reload()
+
+    subprocess.run(
+        ["systemctl", "enable", service],
+        capture_output=True,
+        text=True,
+        check=True
+    )
+
+
+def _disable_autostart_sysd():
+    service = "mcwaiter-autostart"
+    service_file = Path("/etc/systemd/system") / (service + ".service")
+
+    subprocess.run(
+        ["systemctl", "disable", "--now", service],
+        capture_output=True,
+        text=True,
+        check=True
+    )
+    
+    if service_file.exists():
+        service_file.unlink()
+
+    _deamon_reload()

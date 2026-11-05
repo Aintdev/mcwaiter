@@ -47,6 +47,7 @@ def create_server_config(path_to_instance: Path):
     override = configparser.ConfigParser()
     
     override.add_section("OVERRIDES")
+    override.set("OVERRIDES", "autostart", "false")
 
     for key in DEFAULT_CONFIG["SERVICE"].keys():
         override.set("OVERRIDES", key, "")

@@ -4,7 +4,7 @@ from pathlib import Path
 import shutil
 import zipfile
 import questionary
-from mcwaiter.config import create_server_config, ensure_config
+from mcwaiter.config import create_server_config, ensure_config, get_server_config
 from mcwaiter.console import Console, RconDetails
 from mcwaiter.helpers import edit_file, is_windows, parse_loader, print_table, require_root, safe_path
 from mcwaiter.logger import logger as log
@@ -349,5 +349,35 @@ def ls(args):
 
     print_table(["Name", "Running", "Path"], rows)
 
+def _enable_autostart():
+    sv.enable_autostart(sv.get_service_manager())
+
+def _disable_autostart():
+    sv.disable_autostart(sv.get_service_manager())
+
+def _run_autostart():
+    manager = sv.get_service_manager()
+    servers_dir = Path(C.config.get("DEFAULTS", "serverpath"))
+    for sp in os.listdir(servers_dir):
+        server_path = servers_dir / sp
+        if not server_path.is_dir():
+            continue
+
+        if not (server_path / "server.jar").exists():
+            continue
+
+        config = get_server_config(server_path)
+        if not config.getboolean("OVERRIDES", "autostart"):
+            continue
+
+        sv.start(server_path, manager)
+        log.info(f"Started instance {server_path.name}.")
+
 def autostart(args):
-    pass
+    require_root()
+    if args.enable:
+        _enable_autostart()
+    elif args.disable:
+        _disable_autostart()
+    elif args.run:
+        _run_autostart()

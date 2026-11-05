@@ -120,7 +120,12 @@ def parse_arguments():
     ls = subparser.add_parser("ls", help="See all installed Servers")
     add_global_arguments(ls)
 
-    autostart = subparser.add_parser("autostart", description="Start all servers that have auto_start enabled in alphabetic order.")
+    autostart = subparser.add_parser("autostart", help="Autostart initialization and execution.")
+    add_global_arguments(autostart)
+
+    autostart.add_argument("--enable", action="store_true", help="Enable autostart service.")
+    autostart.add_argument("--disable", action="store_true", help="Disable & delete autostart service.")
+    autostart.add_argument("--run", action="store_true", help="Start all servers that have auto_start enabled in alphabetic order.")
     
     args = parser.parse_args()
 
