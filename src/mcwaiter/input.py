@@ -71,7 +71,7 @@ def parse_arguments():
     create.add_argument(
         "--loader",
         type=str,
-        help="Loader in format 'loader@build'. (eg: fabric@0.20.1 or fabric@stable (gets latest stable version))",
+        help="Loader in format 'loader@build'. (eg: fabric@0.20.1 or just fabric and version will be asked)",
     )
 
     delete = subparser.add_parser(
