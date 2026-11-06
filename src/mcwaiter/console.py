@@ -125,9 +125,21 @@ def console(stdscr, jrn: ConsolePopen, logs: queue.Queue, rcon: RconClient):
         except curses.error:
             continue
 
-        if not rcon_on:
+        if key == curses.KEY_PPAGE:
+                    new = cur_idx - (visible // 3)
+                    cur_idx = max(min(len(history), visible - 1), new)
+                    newest_lock = False
+                
+        elif key == curses.KEY_NPAGE:
+            new = cur_idx + (visible // 3)
+            cur_idx = min(len(history) - 1, new)
+            if cur_idx == len(history) - 1:
+                newest_lock = True
+
+        elif not rcon_on:
             pass
 
+        # rcon dependent keypresse
         elif key == curses.KEY_UP:
             if len(rcon_history) > rcon_history_idx:
                 if old_input := rcon_history[-(rcon_history_idx + 1)]:
@@ -155,16 +167,7 @@ def console(stdscr, jrn: ConsolePopen, logs: queue.Queue, rcon: RconClient):
                     logs.put(line.rstrip("\n"))
             user_input = ""
 
-        elif key == curses.KEY_PPAGE:
-            new = cur_idx - (visible // 3)
-            cur_idx = max(min(len(history), visible - 1), new)
-            newest_lock = False
         
-        elif key == curses.KEY_NPAGE:
-            new = cur_idx + (visible // 3)
-            cur_idx = min(len(history) - 1, new)
-            if cur_idx == len(history) - 1:
-                newest_lock = True
 
         elif key in ("\b", "\x7f", curses.KEY_BACKSPACE):
             user_input = user_input[:-1]
