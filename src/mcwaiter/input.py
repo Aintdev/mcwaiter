@@ -386,6 +386,7 @@ def ensure_data(args: argparse.Namespace, flags: int) -> argparse.Namespace:
             else:
                 args.editor = ask(questionary.text, "Editor:")
                 C.config.set("DEFAULTS", "Editor", args.editor)
+                save_config()
 
         if flags & C.CONFIRM_DELETION_F and not args.confirm_override:
             args.confirm_override = confirm_with_ctrl_message("Are you sure you want to DELETE. This action is not reversable.", h.random_str(6))

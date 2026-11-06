@@ -59,9 +59,11 @@ def safe_path(base: Path, relative: str) -> Path:
 def edit_file(path: Path, param = None):
     if param:
         C.config.set("DEFAULTS", "editor", param)
-    if not C.config.get("DEFAULTS", "editor"):
+        save_config()
+    elif not C.config.get("DEFAULTS", "editor"):
         C.config.set("DEFAULTS", "editor", i.ask(questionary.text, "Editor:"))
-    save_config()
+        save_config()
+        
 
     editor = C.config.get("DEFAULTS", "editor")
     if shutil.which(editor):
