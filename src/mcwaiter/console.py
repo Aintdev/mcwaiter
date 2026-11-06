@@ -167,8 +167,6 @@ def console(stdscr, jrn: ConsolePopen, logs: queue.Queue, rcon: RconClient):
                     logs.put(line.rstrip("\n"))
             user_input = ""
 
-        
-
         elif key in ("\b", "\x7f", curses.KEY_BACKSPACE):
             user_input = user_input[:-1]
             rcon_history_idx = 0

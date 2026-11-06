@@ -57,7 +57,7 @@ def main():
         elif args.command == 'autostart':
             autostart(args)
     except (KeyboardInterrupt, UserCancelledError):
-        log.info("Cancelled.")
+        pass
     except ServerStateError as e:
         log.critical("ServerStateError: " + str(e))
     except NoVersionFoundError as e:
@@ -335,7 +335,7 @@ def console(args):
     except ConnectionRefusedError:
         Console(f"minecraft-{args.name}").run()
     except KeyboardInterrupt:
-        return
+        pass
         
 def ls(args):
     serverpath = Path(C.config.get("DEFAULTS", "serverpath"))
