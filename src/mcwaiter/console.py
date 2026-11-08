@@ -4,6 +4,7 @@ import queue
 import subprocess
 import threading
 from rcon.source import Client as RconClient
+from rcon.exceptions import EmptyResponse, SessionTimeout
 
 @dataclass(frozen=True)
 class RconDetails:
@@ -46,17 +47,20 @@ class Console:
         return DummyRconClient()
     
     def run(self):
-        with self.journal_conn() as jrn:
-            with self.rcon_conn() as rcon:
-                logs = queue.Queue()
+        try:
+            with self.journal_conn() as jrn:
+                with self.rcon_conn() as rcon:
+                    logs = queue.Queue()
 
-                def read_output():
-                    for line in jrn.stdout:
-                        logs.put(line.rstrip("\n"))
+                    def read_output():
+                        for line in jrn.stdout:
+                            logs.put(line.rstrip("\n"))
 
-                threading.Thread(target=read_output, daemon=True).start()
+                    threading.Thread(target=read_output, daemon=True).start()
 
-                curses.wrapper(console, jrn, logs, rcon)
+                    curses.wrapper(console, jrn, logs, rcon)
+        except (SessionTimeout, EmptyResponse):
+            return self.run()
 
 def console(stdscr, jrn: ConsolePopen, logs: queue.Queue, rcon: RconClient):
     curses.curs_set(1)
@@ -163,6 +167,7 @@ def console(stdscr, jrn: ConsolePopen, logs: queue.Queue, rcon: RconClient):
                 rcon_history.append(user_input)
                 rcon_temp_cache = ""
                 response = rcon.run(user_input)
+
                 for line in response.splitlines():
                     logs.put(line.rstrip("\n"))
             user_input = ""
