@@ -34,7 +34,7 @@ class Console:
 
     def journal_conn(self):
         return ConsolePopen(
-            ["journalctl", "-u", self.service, "-f", "-n", "all", "-o", "cat"],
+            ["journalctl", "-u", self.service, "-f", "-n", "all"],
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
@@ -62,7 +62,7 @@ class Console:
         except (SessionTimeout, EmptyResponse):
             return self.run()
 
-def console(stdscr, jrn: ConsolePopen, logs: queue.Queue, rcon: RconClient):
+def console(stdscr: curses.window, jrn: ConsolePopen, logs: queue.Queue, rcon: RconClient):
     curses.curs_set(1)
     try:
         curses.use_default_colors()
