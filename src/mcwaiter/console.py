@@ -26,6 +26,56 @@ class DummyRconClient:
     def __getattr__(self, name):
         return lambda *args, **kwargs: None
 
+class RconWrapper:
+    def __init__(self, details: RconDetails | None = None):
+        self.enabled = False
+        self._conn = None if details is None else RconClient("127.0.0.1", details.port, passwd=details.pw)
+
+    def __enter__(self):
+        self._make_connection()
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        if self._conn:
+            self._conn.__exit__(exc_type, exc, tb)
+        pass
+
+    def _make_connection(self, remake = False):
+        try:
+            if not self._conn is None:
+                if remake:
+                    self._conn = RconClient("127.0.0.1", self._conn.port, passwd=self._conn.passwd)
+                self._conn.__enter__()
+                self.enabled = True
+        except Exception:
+            if not remake:
+                self._make_connection(remake=True)
+            else:
+                self.enabled = False
+
+    def run(
+            self,
+            command: str,
+            *args: str,
+            encoding: str = "utf-8",
+            enforce_id: bool = True,
+            raise_unexpected_terminator: bool = False,
+        ) -> str:
+        for _ in range(3):
+            if not self.enabled:
+                self._make_connection(remake=True)
+            try:
+                return self._conn.run(
+                    command,
+                    *args,
+                    encoding = encoding,
+                    enforce_id = enforce_id,
+                    raise_unexpected_terminator = raise_unexpected_terminator
+                )
+            except (EmptyResponse, SessionTimeout, BrokenPipeError):
+                self.enabled = False
+        return ""
+
 class Console:
     def __init__(self, service: str, rcon_details: RconDetails | None = None):
         self.service: str = service
@@ -42,35 +92,28 @@ class Console:
         )
 
     def rcon_conn(self):
-        if self.rcon:
-            return RconClient("127.0.0.1", self.rcon_details.port, passwd=self.rcon_details.pw)
-        return DummyRconClient()
+        return RconWrapper(self.rcon_details)
     
     def run(self):
-        try:
-            with self.journal_conn() as jrn:
-                with self.rcon_conn() as rcon:
-                    logs = queue.Queue()
+        with self.journal_conn() as jrn:
+            with self.rcon_conn() as rcon:
+                logs = queue.Queue()
 
-                    def read_output():
-                        for line in jrn.stdout:
-                            logs.put(line.rstrip("\n"))
+                def read_output():
+                    for line in jrn.stdout:
+                        logs.put(line.rstrip("\n"))
 
-                    threading.Thread(target=read_output, daemon=True).start()
+                threading.Thread(target=read_output, daemon=True).start()
 
-                    curses.wrapper(console, jrn, logs, rcon)
-        except (SessionTimeout, EmptyResponse):
-            return self.run()
+                curses.wrapper(console, jrn, logs, rcon)
 
-def console(stdscr: curses.window, jrn: ConsolePopen, logs: queue.Queue, rcon: RconClient):
+def console(stdscr: curses.window, jrn: ConsolePopen, logs: queue.Queue, rcon: RconWrapper):
     curses.curs_set(1)
     try:
         curses.use_default_colors()
     except curses.error:
         pass
     stdscr.timeout(50)
-
-    rcon_on = isinstance(rcon, RconClient)
 
     def wrap(line, width):
         w = max(70, width - 1)
@@ -108,7 +151,7 @@ def console(stdscr: curses.window, jrn: ConsolePopen, logs: queue.Queue, rcon: R
         for y, line in enumerate(history[start:cur_idx + 1]):
             stdscr.addnstr(y, 0, line, width - 1)
         # Input
-        prompt = f"{rcon_history_idx}|{cur_idx} cmd: " + ("" if rcon_on else "[DISABLED]")
+        prompt = f"cmd: " + ("" if rcon.enabled else "[DISABLED] - Press 'R' to retry RCON connection.")
         stdscr.addstr(height - 1, 0, prompt)
         stdscr.addnstr(
             height - 1,
@@ -130,9 +173,9 @@ def console(stdscr: curses.window, jrn: ConsolePopen, logs: queue.Queue, rcon: R
             continue
 
         if key == curses.KEY_PPAGE:
-                    new = cur_idx - (visible // 3)
-                    cur_idx = max(min(len(history), visible - 1), new)
-                    newest_lock = False
+            new = cur_idx - (visible // 3)
+            cur_idx = max(min(len(history), visible - 1), new)
+            newest_lock = False
                 
         elif key == curses.KEY_NPAGE:
             new = cur_idx + (visible // 3)
@@ -140,8 +183,9 @@ def console(stdscr: curses.window, jrn: ConsolePopen, logs: queue.Queue, rcon: R
             if cur_idx == len(history) - 1:
                 newest_lock = True
 
-        elif not rcon_on:
-            pass
+        elif not rcon.enabled:
+            if key in ("r", "R"):
+                rcon._make_connection(True)
 
         # rcon dependent keypresse
         elif key == curses.KEY_UP:
