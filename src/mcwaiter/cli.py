@@ -92,7 +92,7 @@ def edit(args):
 
     server_dir = safe_path(Path(C.config.get("DEFAULTS", "serverpath")), str(Path(args.name)))
 
-    real_path = safe_path(Path(C.config.get("DEFAULTS", "serverpath")), str(Path(args.name) / args.relpath))
+    real_path = safe_path(server_dir, args.relpath)
 
     edit_file(real_path)
     user.user_own(user.get_user(C.USER_PREFIX + args.name), server_dir)
