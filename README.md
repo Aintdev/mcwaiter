@@ -2,10 +2,6 @@
 
 Minecraft server configurator and controller for Linux.
 
-> ⚠️ **Status:** Early beta. Expect breaking changes.
-> Please open issues or start a discussion if you find
-> any bugs or would like to request a feature.
-
 Create Minecraft servers and run each one as a sandboxed systemd service
 under its own system user (`mcwaiter-<name>`).
 
