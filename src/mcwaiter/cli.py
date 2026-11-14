@@ -332,8 +332,6 @@ def console(args):
     try:
         rcon = _get_rcon_details(args.name)
         Console(f"minecraft-{args.name}", rcon).run()
-    except ConnectionRefusedError:
-        Console(f"minecraft-{args.name}").run()
     except KeyboardInterrupt:
         pass
         
