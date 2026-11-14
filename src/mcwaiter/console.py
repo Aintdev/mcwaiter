@@ -1,3 +1,4 @@
+from collections import deque
 from dataclasses import dataclass, field
 import curses
 import queue
@@ -84,7 +85,7 @@ class Console:
 
     def journal_conn(self):
         return ConsolePopen(
-            ["journalctl", "-u", self.service, "-f", "-n", "all"],
+            ["journalctl", "-u", self.service, "-f", "-n", "1200"],
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
@@ -119,10 +120,9 @@ def console(stdscr: curses.window, jrn: ConsolePopen, logs: queue.Queue, rcon: R
         w = max(70, width - 1)
         return [line[i:i + w] for i in range(0, len(line), w)] or [""]
 
-    raw = []
+    raw = deque(maxlen=5000)
     history = []
     last_width = None
-    history = []
     rcon_history = []
     rcon_temp_cache = ""
     rcon_history_idx = 0
@@ -134,15 +134,17 @@ def console(stdscr: curses.window, jrn: ConsolePopen, logs: queue.Queue, rcon: R
         height, width = stdscr.getmaxyx()
         stdscr.erase()
 
+        new_lines = False
         while not logs.empty():
             line = logs.get_nowait()
             raw.append(line)
-            history.extend(wrap(line, width))
+            new_lines = True
 
-        if width != last_width:
+        if new_lines or width != last_width:
             history = [part for line in raw for part in wrap(line, width)]
+            if width != last_width:
+                newest_lock = True
             last_width = width
-            newest_lock = True
         
         # Server output
         cur_idx = len(history) - 1 if newest_lock else cur_idx
